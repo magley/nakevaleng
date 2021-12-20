@@ -134,7 +134,6 @@ func (bf *BloomFilter) EncodeToFile(fName string) bool {
 }
 
 func (bf *BloomFilter) EncodeToBytes() []byte {
-	// true if managed to finish
 	var outBin bytes.Buffer
 	encoder := gob.NewEncoder(&outBin)
 	err := encoder.Encode(bf)
