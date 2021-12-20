@@ -1,6 +1,8 @@
-package main
+package cmsketch
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"github.com/spaolacci/murmur3"
 	"hash"
@@ -78,6 +80,18 @@ func (cms *CountMinSketch) EstimateFrequency(checking []byte) uint {
 		}
 	}
 	return min
+}
+
+func (cms *CountMinSketch) EncodeToBytes() []byte {
+	// todo: test and implement rest
+	var outBin bytes.Buffer
+	encoder := gob.NewEncoder(&outBin)
+	err := encoder.Encode(cms)
+	encBytes := outBin.Bytes()
+	if err != nil {
+		return nil
+	}
+	return encBytes
 }
 
 func main() {
