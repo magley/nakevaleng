@@ -1,5 +1,4 @@
 package bloomfilter
-//todo: clean c++ remnants from file, update go and create go.sum
 
 import (
 	"bytes"
@@ -45,37 +44,15 @@ type BloomFilter struct {
 	Contents []byte
 }
 
-// todo: add handling in case of invalid index to map
-var bfm map[uint32]*BloomFilter
-// THE FIRST ELEMENT IS AT 1! not 0!!
-var bfCount uint32 = 0
-var mapCreated = false
-
-func NewMap() {
-    bfm = make(map[uint32]*BloomFilter)
-    mapCreated = true
-}
-
-func New(expectedElements int, falsePositiveRate float64) uint32 {
-    if !mapCreated {
-        NewMap()
-    }
+func New(expectedElements int, falsePositiveRate float64) *BloomFilter {
 	m := CalculateM(expectedElements, falsePositiveRate)
 	k := CalculateK(expectedElements, m)
 	hashes, seeds := CreateHashFunctions(k)
-	bf := &BloomFilter{m, k, hashes, seeds,
+	return &BloomFilter{m, k, hashes, seeds,
 		make([]byte, int(math.Ceil(float64(m) / 8)))}
-	bfCount++
-	bfm[bfCount] = bf
-	return bfCount
 }
 
-func Add(loc uint32, adding []byte) {
-    bf := bfm[loc]
-    bf.GoAdd(adding)
-}
-
-func (bf *BloomFilter) GoAdd(adding []byte) {
+func (bf *BloomFilter) Add(adding []byte) {
 	for _, v := range bf.hashes {
 		_, err := v.Write(adding)
 		if err != nil {
@@ -90,11 +67,7 @@ func (bf *BloomFilter) GoAdd(adding []byte) {
 	}
 }
 
-func Check(loc uint32, checking []byte) bool {
-    return bfm[loc].GoCheck(checking)
-}
-
-func (bf *BloomFilter) GoCheck(checking []byte) bool {
+func (bf *BloomFilter) Check(checking []byte) bool {
 	// returns false if not in set, true if it might be in set
 	for _, v := range bf.hashes {
 		_, err := v.Write(checking)
@@ -113,29 +86,21 @@ func (bf *BloomFilter) GoCheck(checking []byte) bool {
 	return true
 }
 
-func DecodeFromFile(fName string) int32 {
+func DecodeFromFile(fName string) *BloomFilter {
 	reader, err := os.Open(fName)
 	if err != nil {
-		return -1
+		// todo: add proper err handling
+		return nil
 	}
-    bf := GoDecode(reader)
-    if !mapCreated {
-        NewMap()
-    }
-    bfCount++
-    bfm[bfCount] = bf
-    return int32(bfCount)
+    return Decode(reader)
 }
 
-func DecodeFromBytes(data []byte) uint32 {
+func DecodeFromBytes(data []byte) *BloomFilter {
 	reader := bytes.NewReader(data)
-	bf := GoDecode(reader)
-	bfCount++
-	bfm[bfCount] = bf
-	return bfCount
+	return Decode(reader)
 }
 
-func GoDecode(reader io.Reader) *BloomFilter {
+func Decode(reader io.Reader) *BloomFilter {
 	// assumes good input
 	decoder := gob.NewDecoder(reader)
 	bf := &BloomFilter{}
@@ -151,12 +116,8 @@ func GoDecode(reader io.Reader) *BloomFilter {
 	return bf
 }
 
-func EncodeToFile(loc uint32, fName string) bool {
+func (bf *BloomFilter) EncodeToFile(fName string) bool {
 	// true if managed to finish
-	if !mapCreated {
-		return false
-	}
-	bf := bfm[loc]
 	outBin, _ := os.Create(fName)
 	defer func(outBin *os.File) {
 		err := outBin.Close()
@@ -172,55 +133,37 @@ func EncodeToFile(loc uint32, fName string) bool {
 	return true
 }
 
-func EncodeToBytes(loc uint32, putIn *[]byte) bool {
+func (bf *BloomFilter) EncodeToBytes() []byte {
 	// true if managed to finish
-	// user should pass putIn of correct size calculated by calc
-	if !mapCreated {
-		return false
-	}
-	bf := bfm[loc]
 	var outBin bytes.Buffer
 	encoder := gob.NewEncoder(&outBin)
 	err := encoder.Encode(bf)
 	encBytes := outBin.Bytes()
-	if len(*putIn) != len(encBytes) {
-		return false
-	}
-	copy(*putIn, encBytes)
 	if err != nil {
-		return false
+		return nil
 	}
-	return true
-}
-
-func CalcEncodeSize(loc uint32) int32 {
-	bf := bfm[loc]
-	var outBin bytes.Buffer
-	encoder := gob.NewEncoder(&outBin)
-	err := encoder.Encode(bf)
-	if err != nil {
-		return -1
-	}
-	return int32(outBin.Len())
+	return encBytes
 }
 
 func main() {
-	bfNum := New(100, 0.2)
-	fmt.Println(bfNum)
-	bf := bfm[1]
+	// change package name to main for a quick test
+	bf := New(100, 0.2)
 	fmt.Println(bf)
-	bf.GoAdd([]byte{1, 2})
-	bf.GoAdd([]byte{3, 4})
+	bf.Add([]byte{1, 2})
+	bf.Add([]byte{3, 4})
 	fmt.Println(bf.Contents)
-	bfBytes := make([]byte, CalcEncodeSize(1))
-	success := EncodeToBytes(1, &bfBytes)
-	fmt.Println("Success:", success)
+	bfBytes := bf.EncodeToBytes()
 	fmt.Println(bfBytes)
-	bf2Num := DecodeFromBytes(bfBytes)
-	bf2 := bfm[bf2Num]
+	bf2 := DecodeFromBytes(bfBytes)
 	// should be true false true
-	fmt.Println(bf2.GoCheck([]byte{1, 2}))
-	fmt.Println(bf2.GoCheck([]byte{2, 5}))
-	fmt.Println(bf2.GoCheck([]byte{3, 4}))
+	fmt.Println(bf2.Check([]byte{1, 2}))
+	fmt.Println(bf2.Check([]byte{2, 5}))
+	fmt.Println(bf2.Check([]byte{3, 4}))
 	fmt.Println(bf2.HashSeeds)
+	bf.EncodeToFile("bf31451.bin")
+	bf3 := DecodeFromFile("bf31451.bin")
+	fmt.Println("---FROM FILE---")
+	fmt.Println(bf3.Check([]byte{1, 2}))
+	fmt.Println(bf3.Check([]byte{2, 5}))
+	fmt.Println(bf3.Check([]byte{3, 4}))
 }
