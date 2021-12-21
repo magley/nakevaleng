@@ -10,7 +10,7 @@ bloomfilter
 
 // Create bloom filter.
 
-bf := NewBloomFilter(10, 0.2)
+bf := New(10, 0.2)
 
 // Insert elements.
 

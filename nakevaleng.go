@@ -9,7 +9,7 @@ import (
 func main() {
 	// Create bloom filter.
 
-	bf := bloomfilter.NewBloomFilter(10, 0.2)
+	bf := bloomfilter.New(10, 0.2)
 
 	// Insert elements.
 
