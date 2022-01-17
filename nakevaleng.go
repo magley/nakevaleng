@@ -1,14 +1,62 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 
-	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/bloomfilter"
+	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkle_tree"
+	"nakevaleng/ds/record"
 )
 
 func main() {
+	//---------------------------------------------------------------------------------------------
+	// Record
+
+	// Create new
+
+	rec1 := record.NewFromString("Key01", "Val01")
+	rec2 := record.NewFromString("Key02", "Val02")
+
+	// Print
+
+	fmt.Println("Rec1:", rec1.ToString())
+	fmt.Println("Rec2:", rec2.ToString())
+
+	// Check its tombstone
+
+	fmt.Println("Is it deleted:", rec1.IsDeleted()) // Should be false
+
+	// Append to file
+
+	os.Remove("record.bin")
+
+	rec1.Serialize("record.bin")
+	rec2.Serialize("record.bin")
+
+	// Read from file
+
+	rec1_from_file := record.NewEmpty()
+	rec2_from_file := record.NewEmpty()
+
+	{
+		f, _ := os.OpenFile("record.bin", os.O_RDONLY, 0666)
+		defer f.Close()
+		w := bufio.NewReader(f)
+
+		rec1_from_file.Deserialize(w) // Should equal rec1
+		rec2_from_file.Deserialize(w) // Should equal rec2
+	}
+
+	fmt.Println("Rec1:", rec1_from_file.ToString())
+	fmt.Println("Rec2:", rec2_from_file.ToString())
+
+	fmt.Println("\n=================================================\n")
+
+	//---------------------------------------------------------------------------------------------
+	// Count-Min Sketch
 
 	// Create new count-min sketch
 
@@ -43,7 +91,10 @@ func main() {
 	fmt.Println(cms2.Query([]byte("yellow")))
 	fmt.Println(cms2.Query([]byte("orange")))
 
-	fmt.Println("=================================================")
+	fmt.Println("\n=================================================\n")
+
+	//---------------------------------------------------------------------------------------------
+	// Bloom Filter.
 
 	// Create bloom filter.
 
@@ -74,7 +125,10 @@ func main() {
 	bf2 := bloomfilter.DecodeFromFile("filter.db")
 	fmt.Println(bf2.Query([]byte("KEY04")))
 
-	fmt.Println("===========================================")
+	fmt.Println("\n=================================================\n")
+
+	//---------------------------------------------------------------------------------------------
+	// Merkle Tree.
 
 	// Nodes.
 
@@ -91,7 +145,7 @@ func main() {
 
 	// Build tree.
 
-	mt := merkle_tree.NewMerkleTree(nodes)
+	mt := merkle_tree.New(nodes)
 	fmt.Println("mt root:\t", mt.Root.ToString())
 
 	// Serialize & deserialize.
@@ -105,4 +159,6 @@ func main() {
 
 	fmt.Println("mt is valid:\t", mt.Validate())
 	fmt.Println("mt2 is valid:\t", mt2.Validate())
+
+	fmt.Println("\n=================================================\n")
 }
