@@ -14,7 +14,7 @@ type MerkleTree struct {
 
 // Constructs a new tree from a given slice of nodes.
 //
-func NewMerkleTree(level []MerkleNode) MerkleTree {
+func New(level []MerkleNode) MerkleTree {
 	tree := MerkleTree{}
 	tree.Root = &tree.build(level)[0]
 	return tree
