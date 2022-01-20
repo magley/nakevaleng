@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"nakevaleng/core/record"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkle_tree"
-	"nakevaleng/ds/record"
 )
 
 func main() {
