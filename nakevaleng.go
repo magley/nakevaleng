@@ -6,12 +6,72 @@ import (
 	"os"
 
 	"nakevaleng/core/record"
+	"nakevaleng/core/skiplist"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkle_tree"
 )
 
 func main() {
+	//---------------------------------------------------------------------------------------------
+	// Skiplist
+
+	// Create new
+
+	skiplist := skiplist.New(3)
+
+	// Insert various key-value data
+
+	skiplist.Write([]byte("Key01"), []byte("Val01"))
+	/*skiplist.Write([]byte("Key02"), []byte("Val02"))
+	skiplist.Write([]byte("Key04"), []byte("Val04"))
+	skiplist.Write([]byte("Key05"), []byte("Val05"))
+	skiplist.Write([]byte("Key03"), []byte("Val03"))
+	skiplist.Write([]byte("Key06"), []byte("Val06"))
+
+	// Key-based find
+
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01")).Value.ToString())
+	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02")).Value.ToString())
+	fmt.Println("Find Key03...", skiplist.Find([]byte("Key03")).Value.ToString())
+
+	// Remove elements
+
+	skiplist.Remove([]byte("Key05"))
+	skiplist.Remove([]byte("Key07")) // Shouldn't do anything since Key07 was not in our skiplist.
+
+	fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05")))
+
+	// Update elements
+
+	skiplist.Write([]byte("Key01"), []byte("Key01 ***UPDATED***"))
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01")).Value.ToString())
+
+	// Iterate through all nodes
+
+	fmt.Println("All the nodes:")
+	{
+		n := skiplist.Header.Next[0]
+		for n != nil {
+			fmt.Println(n.Value.ToString())
+			n = n.Next[0]
+		}
+	}
+
+	// Clear the list
+
+	skiplist.Clear()
+	fmt.Println("All the nodes after clearing the list:")
+	{
+		n := skiplist.Header.Next[0]
+		for n != nil {
+			fmt.Println(n.Value.ToString())
+			n = n.Next[0]
+		}
+	}
+	*/
+	fmt.Println("\n=================================================\n")
+
 	//---------------------------------------------------------------------------------------------
 	// Record
 
