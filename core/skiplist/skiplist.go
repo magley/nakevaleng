@@ -15,7 +15,7 @@ type Skiplist struct {
 
 // New creates an empty Skiplist with height 'level'.
 // 	level	Number of available levels in range [0, level).
-// Throws an error if specified height is greater than the maximium allowed height.
+// Throws an error if specified height is greater than the maximium allowed height or less than 1.
 func New(level int) Skiplist {
 	lvlMax := 4 // TODO: Make lvlMax configurable (config file)
 

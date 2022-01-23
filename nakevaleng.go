@@ -9,7 +9,7 @@ import (
 	"nakevaleng/core/skiplist"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
-	"nakevaleng/ds/merkle_tree"
+	"nakevaleng/ds/merkletree"
 )
 
 func main() {
@@ -93,10 +93,10 @@ func main() {
 
 	// Append to file
 
-	os.Remove("record.bin")
+	os.Remove("data/record.bin")
 
-	rec1.Serialize("record.bin")
-	rec2.Serialize("record.bin")
+	rec1.Serialize("data/record.bin")
+	rec2.Serialize("data/record.bin")
 
 	// Read from file
 
@@ -104,7 +104,7 @@ func main() {
 	rec2_from_file := record.NewEmpty()
 
 	{
-		f, _ := os.OpenFile("record.bin", os.O_RDONLY, 0666)
+		f, _ := os.OpenFile("data/record.bin", os.O_RDONLY, 0666)
 		defer f.Close()
 		w := bufio.NewReader(f)
 
@@ -143,8 +143,8 @@ func main() {
 
 	// Serialize
 
-	cms.EncodeToFile("cms.bin")
-	cms2 := cmsketch.DecodeFromFile("cms.bin")
+	cms.EncodeToFile("data/cms.bin")
+	cms2 := cmsketch.DecodeFromFile("data/cms.bin")
 
 	fmt.Println("Querying a CMS built from disk, should be: 3, 1, 1, 0, 0")
 	fmt.Println(cms2.Query([]byte("blue")))
@@ -182,9 +182,9 @@ func main() {
 
 	// Serialize & deserialize (true)
 
-	bf.EncodeToFile("filter.db")
+	bf.EncodeToFile("data/filter.db")
 
-	bf2 := bloomfilter.DecodeFromFile("filter.db")
+	bf2 := bloomfilter.DecodeFromFile("data/filter.db")
 	fmt.Println(bf2.Query([]byte("KEY04")))
 
 	fmt.Println("\n=================================================\n")
@@ -194,7 +194,7 @@ func main() {
 
 	// Nodes.
 
-	nodes := []merkle_tree.MerkleNode{
+	nodes := []merkletree.MerkleNode{
 		{Data: []byte("1")},
 		{Data: []byte("2")},
 		{Data: []byte("3")},
@@ -207,14 +207,14 @@ func main() {
 
 	// Build tree.
 
-	mt := merkle_tree.New(nodes)
+	mt := merkletree.New(nodes)
 	fmt.Println("mt root:\t", mt.Root.ToString())
 
 	// Serialize & deserialize.
 
-	mt.Serialize("metadata.db")
-	mt2 := merkle_tree.MerkleTree{}
-	mt2.Deserialize("metadata.db")
+	mt.Serialize("data/metadata.db")
+	mt2 := merkletree.MerkleTree{}
+	mt2.Deserialize("data/metadata.db")
 	fmt.Println("mt2 root:\t", mt2.Root.ToString())
 
 	// Check for corruption.
