@@ -1,5 +1,5 @@
 ```
-merkle_node
+merklenode
 	- merkle tree node which stores a byte sequence
 	- supports serialization, with the following format:
 
@@ -15,7 +15,7 @@ merkle_node
 			if 'empty node' bit is set, no data is written
 
 
-merkle_tree
+merkletree
 	- merkle tree with bottom-up building, hash evaluation and verification
 	- a tree can be built from any number of elements or nodes
 	- if the tree is not complete, empty nodes are inserted in-place
@@ -55,13 +55,13 @@ nodes := []MerkleNode{
 
 // Build tree.
 
-mt := NewMerkleTree(nodes)
+mt := merkletree.New(nodes)
 fmt.Println("mt root:\t", mt.Root.ToString())
 
 // Serialize & deserialize.
 
 mt.Serialize("metadata.db")
-mt2 := MerkleTree{}
+mt2 := merkletree.MerkleTree{}
 mt2.Deserialize("metadata.db")
 fmt.Println("mt2 root:\t", mt2.Root.ToString())
 
