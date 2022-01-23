@@ -13,6 +13,8 @@ import (
 )
 
 func main() {
+	fmt.Println("\n=================================================\n")
+
 	//---------------------------------------------------------------------------------------------
 	// Skiplist
 
@@ -22,30 +24,30 @@ func main() {
 
 	// Insert various key-value data
 
-	skiplist.Write([]byte("Key01"), []byte("Val01"))
-	/*skiplist.Write([]byte("Key02"), []byte("Val02"))
-	skiplist.Write([]byte("Key04"), []byte("Val04"))
-	skiplist.Write([]byte("Key05"), []byte("Val05"))
-	skiplist.Write([]byte("Key03"), []byte("Val03"))
-	skiplist.Write([]byte("Key06"), []byte("Val06"))
+	skiplist.WriteKeyVal([]byte("Key01"), []byte("Val01"))
+	skiplist.WriteKeyVal([]byte("Key02"), []byte("Val02"))
+	skiplist.WriteKeyVal([]byte("Key04"), []byte("Val04"))
+	skiplist.WriteKeyVal([]byte("Key05"), []byte("Val05"))
+	skiplist.WriteKeyVal([]byte("Key03"), []byte("Val03"))
+	skiplist.WriteKeyVal([]byte("Key06"), []byte("Val06"))
 
 	// Key-based find
 
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01")).Value.ToString())
-	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02")).Value.ToString())
-	fmt.Println("Find Key03...", skiplist.Find([]byte("Key03")).Value.ToString())
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
+	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
+	fmt.Println("Find Key03...", skiplist.Find([]byte("Key03"), true).Data.ToString())
 
 	// Remove elements
 
 	skiplist.Remove([]byte("Key05"))
 	skiplist.Remove([]byte("Key07")) // Shouldn't do anything since Key07 was not in our skiplist.
 
-	fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05")))
+	fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05"), true))
 
 	// Update elements
 
-	skiplist.Write([]byte("Key01"), []byte("Key01 ***UPDATED***"))
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01")).Value.ToString())
+	skiplist.WriteKeyVal([]byte("Key01"), []byte("Key01 ***UPDATED***"))
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
 
 	// Iterate through all nodes
 
@@ -53,7 +55,7 @@ func main() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Value.ToString())
+			fmt.Println(n.Data.ToString())
 			n = n.Next[0]
 		}
 	}
@@ -65,11 +67,11 @@ func main() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Value.ToString())
+			fmt.Println(n.Data.ToString())
 			n = n.Next[0]
 		}
 	}
-	*/
+
 	fmt.Println("\n=================================================\n")
 
 	//---------------------------------------------------------------------------------------------

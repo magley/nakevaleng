@@ -64,6 +64,14 @@ func New(key, val []byte) Record {
 	}
 }
 
+// NewExt() creates a Record object with the given key and value, as well as timestamp and status.
+func NewExt(key, val []byte, timestamp int64, status uint8) Record {
+	r := New(key, val)
+	r.Timestamp = timestamp
+	r.Status = status
+	return r
+}
+
 // NewFromString() creates a new Record object with the key and value specified as strings.
 //	key	::	Key for this Record
 //	val	::	Value for this Record
