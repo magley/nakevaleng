@@ -33,6 +33,7 @@ func main() {
 
 	// Key-based find
 
+	skiplist.Find([]byte("Key01"), true).Data.Status |= record.RECORD_COUNTMINSKETCH
 	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
 	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
 	fmt.Println("Find Key03...", skiplist.Find([]byte("Key03"), true).Data.ToString())

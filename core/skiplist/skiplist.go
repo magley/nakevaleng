@@ -29,7 +29,7 @@ func New(level int) Skiplist {
 		panic(nil)
 	}
 
-	header := NewNodeFromKeyVal(make([]byte, 0), make([]byte, 0), lvlMax)
+	header := newNodeEmpty(lvlMax)
 
 	return Skiplist{
 		Level:    level,
@@ -41,7 +41,7 @@ func New(level int) Skiplist {
 // Clear() removes all nodes from the Skiplist and resets the number of levels to 1.
 func (this *Skiplist) Clear() {
 	this.Level = 1
-	emptyHeader := NewNodeFromKeyVal(make([]byte, 0), make([]byte, 0), this.LevelMax)
+	emptyHeader := newNodeEmpty(this.LevelMax)
 	this.Header = &emptyHeader
 }
 
@@ -66,7 +66,9 @@ func (this *Skiplist) Write(rec record.Record) {
 	// Node with given key already exists: update the value and timestamp.
 
 	if !(node == nil || bytes.Compare(rec.Key, node.Data.Key) != 0) {
+		statusOld := node.Data.Status
 		node.Data = record.New(rec.Key, rec.Value)
+		node.Data.Status = statusOld
 		return
 	}
 
@@ -96,7 +98,7 @@ func (this *Skiplist) Write(rec record.Record) {
 
 	// Create the node and reconnect the data
 
-	insertedNode := NewNode(rec, this.Level)
+	insertedNode := newNode(rec, this.Level)
 
 	for lvl := 0; lvl < this.Level; lvl++ {
 		insertedNode.Next[lvl] = update[lvl].Next[lvl]
@@ -108,7 +110,7 @@ func (this *Skiplist) Write(rec record.Record) {
 // the data inside the node is updated.
 // 	key	::	Key of the node to insert/modify
 // 	val	::	Value of the new node/new value of the node
-//	`Don't use this function, except for testing purposes. Always use` Write()
+//	`Don't use this function unless it's for testing purposes. Always use` Write().
 func (this *Skiplist) WriteKeyVal(key, val []byte) {
 	this.Write(record.New(key, val))
 }

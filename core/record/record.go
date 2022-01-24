@@ -24,25 +24,10 @@ const (
 //	|       | CMS | HLL |  T  |
 //	+- ... -+-----+-----+-----+
 //	8       3     2     1     0       Bit offset
-//
-// 	T - "tombstone":
-//	 0: the record is active,
-//	 1: the record is marked as deleted.
-//	 Use RECORD_TOMBSTONE_REMOVED to set the bit
-// 	HLL - "whether this record's data is a HyperLogLog object":
-//	 0: no
-//	 1: yes
-//	 Use RECORD_HYPERLOGLOG to set the bit
-// 	CMS - "whether this record's data is a CountMinSketch object":
-//	 0: no
-//	 1: yes
-//	 Use RECORD_COUNTMINSKETCH to set the bit
-//
-// Note that having both HLL and CMS bits set is undefined behaviour.
 type Record struct {
-	Crc       uint32 // Checksum
+	Crc       uint32 // Checksum of key and value ONLY!!!
 	Timestamp int64  // Creation time as UNIX timestamp
-	Status    uint8  // Tombstone etc.
+	Status    uint8  // Status bits, see the documentation for more info.
 	KeySize   uint64 // Size of Key (in bytes)
 	ValueSize uint64 // Size of Value (in bytes)
 	Key       []byte //
