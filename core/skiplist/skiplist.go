@@ -63,12 +63,10 @@ func (this *Skiplist) Write(rec record.Record) {
 
 	node = node.Next[0]
 
-	// Node with given key already exists: update the value and timestamp.
+	// Node with given key already exists.
 
 	if !(node == nil || bytes.Compare(rec.Key, node.Data.Key) != 0) {
-		statusOld := node.Data.Status
-		node.Data = record.New(rec.Key, rec.Value)
-		node.Data.Status = statusOld
+		node.Data = record.Clone(rec)
 		return
 	}
 
@@ -104,15 +102,6 @@ func (this *Skiplist) Write(rec record.Record) {
 		insertedNode.Next[lvl] = update[lvl].Next[lvl]
 		update[lvl].Next[lvl] = &insertedNode
 	}
-}
-
-// WriteKeyVal() writes a node with the given key and val into the skiplist. If the same key exists,
-// the data inside the node is updated.
-// 	key	::	Key of the node to insert/modify
-// 	val	::	Value of the new node/new value of the node
-//	`Don't use this function unless it's for testing purposes. Always use` Write().
-func (this *Skiplist) WriteKeyVal(key, val []byte) {
-	this.Write(record.New(key, val))
 }
 
 // Remove() marks a node of given key as 'removed'. If the node doesn't exist, nothing happens. Note
