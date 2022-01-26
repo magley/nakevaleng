@@ -21,8 +21,8 @@ type MerkleNode struct {
 
 // Get hexadecimal representation of the node's data.
 //
-func (this *MerkleNode) ToString() string {
-	return hex.EncodeToString(this.Data[:])
+func (node *MerkleNode) ToString() string {
+	return hex.EncodeToString(node.Data[:])
 }
 
 // Append data to the specified file, with a file writer already open.
@@ -40,15 +40,11 @@ func (this *MerkleNode) ToString() string {
 //	DATA
 //		data, if FLAGS is set to empty, nothing is written
 //
-func (this *MerkleNode) Serialize(writer *bufio.Writer, flush bool) {
-	if flush {
-		defer writer.Flush()
-	}
-
+func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 	// Flags
 
 	flags := byte(0)
-	if len(this.Data) == 0 {
+	if len(node.Data) == 0 {
 		flags |= MERKLE_NODE_EMPTY
 	}
 
@@ -65,7 +61,7 @@ func (this *MerkleNode) Serialize(writer *bufio.Writer, flush bool) {
 	if (flags & MERKLE_NODE_EMPTY) == MERKLE_NODE_EMPTY {
 
 	} else {
-		_, err := writer.Write(this.Data)
+		_, err := writer.Write(node.Data)
 		if err != nil {
 			panic(err)
 		}

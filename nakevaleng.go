@@ -22,33 +22,47 @@ func main() {
 
 	skiplist := skiplist.New(3)
 
-	// Insert various key-value data
+	{
+		// Some data
 
-	skiplist.WriteKeyVal([]byte("Key01"), []byte("Val01"))
-	skiplist.WriteKeyVal([]byte("Key02"), []byte("Val02"))
-	skiplist.WriteKeyVal([]byte("Key04"), []byte("Val04"))
-	skiplist.WriteKeyVal([]byte("Key05"), []byte("Val05"))
-	skiplist.WriteKeyVal([]byte("Key03"), []byte("Val03"))
-	skiplist.WriteKeyVal([]byte("Key06"), []byte("Val06"))
+		r1 := record.NewFromString("Key01", "Val01")
+		r2 := record.NewFromString("Key02", "Val05")
+		r3 := record.NewFromString("Key03", "Val02")
+		r4 := record.NewFromString("Key04", "Val04")
+
+		r1.TypeInfo = 1 // e.g. TypeInfo 1 == CountMinSketch
+		r2.TypeInfo = 2 // e.g. TypeInfo 2 == HyperLogLog
+
+		// Insert into skiplist
+
+		skiplist.Write(r1)
+		skiplist.Write(r3)
+		skiplist.Write(r4)
+		skiplist.Write(r2)
+	}
 
 	// Key-based find
 
-	skiplist.Find([]byte("Key01"), true).Data.Status |= record.RECORD_COUNTMINSKETCH
 	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
 	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
-	fmt.Println("Find Key03...", skiplist.Find([]byte("Key03"), true).Data.ToString())
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
+
+	// Change with new type
+
+	{
+		r4_new := skiplist.Find([]byte("Key04"), true).Data
+		r4_new.TypeInfo = 3
+		skiplist.Write(r4_new)
+	}
+
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
 
 	// Remove elements
 
 	skiplist.Remove([]byte("Key05"))
 	skiplist.Remove([]byte("Key07")) // Shouldn't do anything since Key07 was not in our skiplist.
-
 	fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05"), true))
-
-	// Update elements
-
-	skiplist.WriteKeyVal([]byte("Key01"), []byte("Key01 ***UPDATED***"))
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
+	fmt.Println("Find Key07 (noexist)...", skiplist.Find([]byte("Key05"), true))
 
 	// Iterate through all nodes
 
@@ -83,10 +97,19 @@ func main() {
 	rec1 := record.NewFromString("Key01", "Val01")
 	rec2 := record.NewFromString("Key02", "Val02")
 
+	// Change type
+
+	rec1.TypeInfo = 5 // Meaningless without context
+
+	// Clone
+
+	rec1_clone := record.Clone(rec1)
+
 	// Print
 
 	fmt.Println("Rec1:", rec1.ToString())
 	fmt.Println("Rec2:", rec2.ToString())
+	fmt.Println("Rec1 Clone:", rec1_clone.ToString())
 
 	// Check its tombstone
 
@@ -96,8 +119,15 @@ func main() {
 
 	os.Remove("data/record.bin")
 
-	rec1.Serialize("data/record.bin")
-	rec2.Serialize("data/record.bin")
+	{
+		f, _ := os.OpenFile("data/record.bin", os.O_APPEND, 0666)
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+
+		rec1.Serialize(w)
+		rec2.Serialize(w)
+	}
 
 	// Read from file
 

@@ -38,48 +38,72 @@ skiplist
 
 ```go
 
-// Create a new skiplist
+// Create new 
 
 skiplist := skiplist.New(3)
 
-// Insert data using key-value pairs (not recommended)
+{
+    // Some data
 
-skiplist.WriteKeyVal([]byte("Key01"), []byte("Val01"))
+    r1 := record.New([]byte("Key01"), []byte("Val01"))
+    r2 := record.New([]byte("Key02"), []byte("Val05"))
+    r3 := record.New([]byte("Key03"), []byte("Val02"))
+    r4 := record.New([]byte("Key04"), []byte("Val04"))
 
-// Insert data using a pre-existing record (recommended)
+    r1.TypeInfo = 1 // e.g. TypeInfo 1 == CountMinSketch
+    r2.TypeInfo = 2 // e.g. TypeInfo 2 == HyperLogLog
 
-rec := Record{...}
-skiplist.Write(rec)
+    // Insert into skiplist
 
-// Find by key
+    skiplist.Write(r1)
+    skiplist.Write(r3)
+    skiplist.Write(r4)
+    skiplist.Write(r2)
+}
 
-nodePtr1 := skiplist.Find([]byte("Key01"), true)  // Will ignore removed nodes
-nodePtr2 := skiplist.Find([]byte("Key01"), false) // Will NOT ignore removed nodes
+// Key-based find
 
-// Remove element by key
+fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
+fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
 
-skiplist.Remove([]byte("Key01"))
+// Change with new type
 
-// Update existing element using key-value pairs
+{
+    r4_new := skiplist.Find([]byte("Key04"), true).Data
+    r4_new.TypeInfo = 3
+    skiplist.Write(r4_new)
+}
 
-skiplist.WriteKeyVal([]byte("Key01"), []byte("Key01 ***UPDATED***"))
+fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
 
-// Update existing element using a pre-existing record
+// Remove elements
 
-rec2 := Record{...}
-skiplist.Write(rec2)
-skiplist.WriteKeyVal(rec2)
+skiplist.Remove([]byte("Key05"))
+skiplist.Remove([]byte("Key07")) // Shouldn't do anything since Key07 was not in our skiplist.
+fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05"), true))
+fmt.Println("Find Key07 (noexist)...", skiplist.Find([]byte("Key05"), true))
 
-// Iterate through the nodes
+// Iterate through all nodes
 
-n := skiplist.Header.Next[0]
-for n != nil {
-    fmt.Println(n.Data.ToString())
-    n = n.Next[0]
+fmt.Println("All the nodes:")
+{
+    n := skiplist.Header.Next[0]
+    for n != nil {
+        fmt.Println(n.Data.ToString())
+        n = n.Next[0]
+    }
 }
 
 // Clear the list
 
 skiplist.Clear()
+fmt.Println("All the nodes after clearing the list:")
+{
+    n := skiplist.Header.Next[0]
+    for n != nil {
+        fmt.Println(n.Data.ToString())
+        n = n.Next[0]
+    }
+}
 
 ```
