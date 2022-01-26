@@ -119,8 +119,15 @@ func main() {
 
 	os.Remove("data/record.bin")
 
-	rec1.Serialize("data/record.bin")
-	rec2.Serialize("data/record.bin")
+	{
+		f, _ := os.OpenFile("data/record.bin", os.O_APPEND, 0666)
+		defer f.Close()
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+
+		rec1.Serialize(w)
+		rec2.Serialize(w)
+	}
 
 	// Read from file
 

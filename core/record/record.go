@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
-	"os"
 	"time"
 )
 
@@ -76,85 +75,71 @@ func NewEmpty() Record {
 }
 
 // IsDeleted() checks for the Tombstone bit in the record's Status field.
-func (this Record) IsDeleted() bool {
-	return (this.Status & RECORD_TOMBSTONE_REMOVED) != 0
+func (rec Record) IsDeleted() bool {
+	return (rec.Status & RECORD_TOMBSTONE_REMOVED) != 0
 }
 
 // ToString() returns a string representation of the record suitable for reading and debugging.
 // The Status and TypeInfo fields are printed in binary.
-func (this Record) ToString() string {
+func (rec Record) ToString() string {
 	return fmt.Sprintf("Record(%d %d %08b %08b %d %d %v %v)",
-		this.Crc,
-		this.Timestamp,
-		this.Status,
-		this.TypeInfo,
-		this.KeySize,
-		this.ValueSize,
-		this.Key,
-		this.Value,
+		rec.Crc,
+		rec.Timestamp,
+		rec.Status,
+		rec.TypeInfo,
+		rec.KeySize,
+		rec.ValueSize,
+		rec.Key,
+		rec.Value,
 	)
 }
 
-func (this *Record) CalcCRC() {
-	this.Crc = crc32.ChecksumIEEE(append(this.Key[:], this.Value[:]...))
-}
-
-// Seralize() appends the contents of the Record to a file in binary mode.
-func (this Record) Serialize(fname string) {
-	f, err := os.OpenFile(fname, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err.Error())
-	}
-	defer f.Close()
-
-	writer := bufio.NewWriter(f)
-	defer writer.Flush()
-
-	this.serialize(writer)
+func (rec *Record) CalcCRC() {
+	rec.Crc = crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
 }
 
 // Deserialize() reads data from buffered reader and overwrites this record.
 // The checksum is recalculated and compared with the one read from the file.
 // The function will panic if they don't match.
-func (this *Record) Deserialize(reader *bufio.Reader) {
-	err := binary.Read(reader, binary.LittleEndian, &this.Crc)
-	err = binary.Read(reader, binary.LittleEndian, &this.Timestamp)
-	err = binary.Read(reader, binary.LittleEndian, &this.Status)
-	err = binary.Read(reader, binary.LittleEndian, &this.TypeInfo)
-	err = binary.Read(reader, binary.LittleEndian, &this.KeySize)
-	err = binary.Read(reader, binary.LittleEndian, &this.ValueSize)
+func (rec *Record) Deserialize(reader *bufio.Reader) {
+	err := binary.Read(reader, binary.LittleEndian, &rec.Crc)
+	err = binary.Read(reader, binary.LittleEndian, &rec.Timestamp)
+	err = binary.Read(reader, binary.LittleEndian, &rec.Status)
+	err = binary.Read(reader, binary.LittleEndian, &rec.TypeInfo)
+	err = binary.Read(reader, binary.LittleEndian, &rec.KeySize)
+	err = binary.Read(reader, binary.LittleEndian, &rec.ValueSize)
 
-	this.Key = make([]byte, this.KeySize)
-	this.Value = make([]byte, this.ValueSize)
+	rec.Key = make([]byte, rec.KeySize)
+	rec.Value = make([]byte, rec.ValueSize)
 
-	err = binary.Read(reader, binary.LittleEndian, &this.Key)
-	err = binary.Read(reader, binary.LittleEndian, &this.Value)
+	err = binary.Read(reader, binary.LittleEndian, &rec.Key)
+	err = binary.Read(reader, binary.LittleEndian, &rec.Value)
 
 	if err != nil {
 		panic(err.Error())
 	}
 
 	// Checksum
-	crc := crc32.ChecksumIEEE(append(this.Key[:], this.Value[:]...))
+	crc := crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
 
-	if crc != this.Crc {
-		fmt.Println("Bad Record checksum (got ", crc, ", expected ", this.Crc, ")")
-		fmt.Println(this.ToString())
+	if crc != rec.Crc {
+		fmt.Println("Bad Record checksum (got ", crc, ", expected ", rec.Crc, ")")
+		fmt.Println(rec.ToString())
 		panic("")
 	}
 }
 
 // serialize() appends the contents of the Record using a buffered writer, in binary mode.
-// Note that the writer does NOT get flushed. It's up to the caller to invoke writer.Flush().
-func (this Record) serialize(writer *bufio.Writer) {
-	err := binary.Write(writer, binary.LittleEndian, this.Crc)
-	err = binary.Write(writer, binary.LittleEndian, this.Timestamp)
-	err = binary.Write(writer, binary.LittleEndian, this.Status)
-	err = binary.Write(writer, binary.LittleEndian, this.TypeInfo)
-	err = binary.Write(writer, binary.LittleEndian, this.KeySize)
-	err = binary.Write(writer, binary.LittleEndian, this.ValueSize)
-	err = binary.Write(writer, binary.LittleEndian, this.Key)
-	err = binary.Write(writer, binary.LittleEndian, this.Value)
+// The writer does not get flushed. It's up to the caller to invoke writer.Flush().
+func (rec Record) Serialize(writer *bufio.Writer) {
+	err := binary.Write(writer, binary.LittleEndian, rec.Crc)
+	err = binary.Write(writer, binary.LittleEndian, rec.Timestamp)
+	err = binary.Write(writer, binary.LittleEndian, rec.Status)
+	err = binary.Write(writer, binary.LittleEndian, rec.TypeInfo)
+	err = binary.Write(writer, binary.LittleEndian, rec.KeySize)
+	err = binary.Write(writer, binary.LittleEndian, rec.ValueSize)
+	err = binary.Write(writer, binary.LittleEndian, rec.Key)
+	err = binary.Write(writer, binary.LittleEndian, rec.Value)
 
 	if err != nil {
 		panic(err.Error())

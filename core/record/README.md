@@ -62,12 +62,13 @@ rec1_from_file := record.NewEmpty()
 rec2_from_file := record.NewEmpty()
 
 {
-    f, _ := os.OpenFile("record.bin", os.O_RDONLY, 0666)
+    f, _ := os.OpenFile("data/record.bin", os.O_APPEND, 0666)
     defer f.Close()
-    w := bufio.NewReader(f)
+    w := bufio.NewWriter(f)
+    defer w.Flush()
 
-    rec1_from_file.Deserialize(w) // Should equal rec1
-    rec2_from_file.Deserialize(w) // Should equal rec2
+    rec1.Serialize(w)
+    rec2.Serialize(w)
 }
 
 fmt.Println("Rec1:", rec1_from_file.ToString())
