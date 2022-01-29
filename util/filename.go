@@ -107,15 +107,14 @@ func Query(fname string) (dbname string, level, run int, filetype FileType) {
 	return
 }
 
-// GetLastLevelAndRun returns the level of the greatest value at the specified path for the
-// given database name.
+// GetLastLevel returns the level of the greatest value at the specified path for the database name.
 func GetLastLevel(relativepath, dbname string) (level int) {
 	files, err := ioutil.ReadDir(relativepath)
 	if err != nil {
 		panic(err)
 	}
 
-	level = -1
+	level = 0
 
 	// Since 'files' is sorted, we get the last non-dir entry.
 

@@ -7,6 +7,7 @@ import (
 
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
+	"nakevaleng/core/sstable"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkletree"
@@ -14,8 +15,84 @@ import (
 )
 
 func main() {
-	fmt.Println("\n=================================================\n")
+	// --------------------------------------------------------------------------------------------
+	// SSTable
 
+	const (
+		dataDir = "data/"
+		dbName  = "nakevaleng"
+	)
+
+	// Write some data
+
+	skipli := skiplist.New(3)
+	skipli.Write(record.NewFromString("Key00", "Val"))
+	skipli.Write(record.NewFromString("Key04", "Val"))
+	skipli.Write(record.NewFromString("Key02", "Val"))
+	skipli.Write(record.NewFromString("Key01", "Val"))
+	skipli.Write(record.NewFromString("Key05", "Val"))
+	skipli.Write(record.NewFromString("Key03", "Val"))
+
+	lvl := 1
+	run := filename.GetLastRun(dataDir, dbName, lvl) + 1
+
+	sstable.MakeTable(dataDir, dbName, lvl, run, &skipli)
+
+	// Test index file
+
+	keyToFind := "Key03"
+	byteOffset := sstable.FindIndex(
+		filename.Table(dataDir, dbName, lvl, run, filename.TypeIndex),
+		[]byte(keyToFind),
+		0,
+	)
+
+	if byteOffset == -1 {
+		fmt.Printf("%s is not in this table\n", keyToFind)
+	} else {
+		f, _ := os.Open(filename.Table(dataDir, dbName, lvl, run, filename.TypeData))
+		defer f.Close()
+		r := bufio.NewReader(f)
+
+		f.Seek(byteOffset, 0)
+		rec := record.Record{}
+		rec.Deserialize(r)
+		fmt.Println(rec.ToString())
+	}
+
+	// Test summary file
+
+	keyToFind = "Key03"
+	summaryByteOffset := sstable.FindSparseIndex(
+		filename.Table(dataDir, dbName, lvl, run, filename.TypeSummary),
+		[]byte(keyToFind),
+	)
+
+	if summaryByteOffset == -1 {
+		fmt.Printf("%s is not in this table\n", keyToFind)
+	} else {
+		byteOffset := sstable.FindIndex(
+			filename.Table(dataDir, dbName, lvl, run, filename.TypeIndex),
+			[]byte(keyToFind),
+			summaryByteOffset,
+		)
+
+		if byteOffset == -1 {
+			fmt.Printf("%s is not in this table\n", keyToFind)
+		} else {
+			f, _ := os.Open(filename.Table(dataDir, dbName, lvl, run, filename.TypeData))
+			defer f.Close()
+			r := bufio.NewReader(f)
+
+			f.Seek(byteOffset, 0)
+			rec := record.Record{}
+			rec.Deserialize(r)
+			fmt.Println(rec.ToString())
+		}
+	}
+}
+
+func main2() {
 	//---------------------------------------------------------------------------------------------
 	// Filename
 
