@@ -10,9 +10,69 @@ import (
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkletree"
+	filename "nakevaleng/util"
 )
 
 func main() {
+	fmt.Println("\n=================================================\n")
+
+	//---------------------------------------------------------------------------------------------
+	// Filename
+
+	// Create table filename from params
+
+	fname1 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeData)
+	fname2 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeFilter)
+	fname3 := filename.Table("data/", "nakevaleng", 1, 1, filename.TypeSummary)
+	fmt.Println(fname1)
+	fmt.Println(fname2)
+	fmt.Println(fname3)
+	os.Create(fname1)
+	os.Create(fname2)
+	os.Create(fname3)
+
+	// Create next run on level 1
+
+	nextRun := filename.GetLastRun("data/", "nakevaleng", 1) + 1
+	nextFnm := filename.Table("data/", "nakevaleng", 1, nextRun, filename.TypeData)
+	fmt.Println(nextFnm)
+	os.Create(nextFnm)
+
+	// Create next level (level 2)
+
+	nextLvl := filename.GetLastLevel("data/", "nakevaleng") + 1
+	nextRun2 := filename.GetLastRun("data/", "nakevaleng", nextLvl) + 1
+
+	nextFnm2 := filename.Table("data/", "nakevaleng", nextLvl, nextRun2, filename.TypeData)
+	fmt.Println(nextFnm2)
+	os.Create(nextFnm2)
+
+	// Querying
+
+	dbname, lvl, rn, ftype := filename.Query(nextFnm2)
+	fmt.Println(dbname == "nakevaleng", lvl == nextLvl, rn == nextRun2, ftype == filename.TypeData)
+
+	// Create log filename from params
+
+	fnamelog1 := filename.Log("data/log/", "nakevaleng", 0)
+	fnamelog2 := filename.Log("data/log/", "nakevaleng", 1)
+	fmt.Println(fnamelog1)
+	fmt.Println(fnamelog2)
+	os.Create(fnamelog1)
+	os.Create(fnamelog2)
+
+	// Create next log filename
+
+	logNo3 := filename.GetLastLog("data/log/", "nakevaleng") + 1
+	fnamelog3 := filename.Log("data/log/", "nakevaleng", logNo3)
+	fmt.Println(fnamelog3)
+	os.Create(fnamelog3)
+
+	// Querying
+
+	dbname, logno, _, ftype := filename.Query(fnamelog3)
+	fmt.Println(dbname == "nakevaleng", logno == logNo3, ftype == filename.TypeLog)
+
 	fmt.Println("\n=================================================\n")
 
 	//---------------------------------------------------------------------------------------------
