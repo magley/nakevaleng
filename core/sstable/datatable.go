@@ -3,7 +3,7 @@ package sstable
 import (
 	"bufio"
 	"nakevaleng/core/skiplist"
-	filename "nakevaleng/util"
+	"nakevaleng/util/filename"
 	"os"
 )
 

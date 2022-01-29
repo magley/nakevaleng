@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	filename "nakevaleng/util"
+	"nakevaleng/util/filename"
 	"os"
 )
 

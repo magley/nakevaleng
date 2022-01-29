@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 	"nakevaleng/core/skiplist"
-	filename "nakevaleng/util"
+	"nakevaleng/util/filename"
 	"os"
 )
 

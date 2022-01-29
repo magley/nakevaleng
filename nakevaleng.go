@@ -11,7 +11,7 @@ import (
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkletree"
-	filename "nakevaleng/util"
+	"nakevaleng/util/filename"
 )
 
 func main() {
