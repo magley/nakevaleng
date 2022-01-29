@@ -17,6 +17,7 @@ const (
 type FileType int
 
 const (
+	TypeBad               = -1
 	TypeData     FileType = iota // Data segment
 	TypeFilter                   // Bloom filter
 	TypeIndex                    // Index
@@ -101,47 +102,53 @@ func Query(fname string) (dbname string, level, run int, filetype FileType) {
 		run = level
 		filetype = TypeLog
 	} else {
-		panic("Bad extension!")
+		dbname = ""
+		level = -1
+		run = -1
+		filetype = TypeBad
 	}
 
 	return
 }
 
 // GetLastLevel returns the level of the greatest value at the specified path for the database name.
-func GetLastLevel(relativepath, dbname string) (level int) {
+func GetLastLevel(relativepath, dbname string) int {
 	files, err := ioutil.ReadDir(relativepath)
 	if err != nil {
 		panic(err)
 	}
 
-	level = 0
+	level := -1
 
 	// Since 'files' is sorted, we get the last non-dir entry.
 
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[len(files)-1]
+		file := files[i]
 		if file.IsDir() {
 			continue
 		} else {
-			dbgot := ""
-			filetype := TypeData
-			dbgot, level, _, filetype = Query(file.Name())
+			dbgot, thisLevel, _, filetype := Query(file.Name())
+
+			if !filetype.IsSSTable() {
+				continue
+			}
 
 			if dbgot != dbname {
 				panic("GetLastLevelAndRun() :: Bad database names (not matching)!")
 			}
-			if !filetype.IsSSTable() {
-				panic("GetLastLevelAndRun() :: Not a database file!")
+
+			if thisLevel > level {
+				level = thisLevel
 			}
 		}
 	}
 
-	return
+	return level
 }
 
 // GetRun returns the run at given level at the specified path for the given database name.
 // Returns -1 if the level does not exist (i.e. it's empty)
-func GetLastRun(relativepath, dbname string, level int) (run int) {
+func GetLastRun(relativepath, dbname string, level int) int {
 	if level <= 0 {
 		panic("Level must be >= 1")
 	}
@@ -151,29 +158,29 @@ func GetLastRun(relativepath, dbname string, level int) (run int) {
 		panic(err)
 	}
 
-	run = -1
+	run := -1
 
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[len(files)-1]
+		file := files[i]
 		if file.IsDir() {
 			continue
 		} else {
-			dbgot := ""
-			filetype := TypeData
-			thislevel := 0
-			dbgot, thislevel, run, filetype = Query(file.Name())
+			dbgot, thislevel, thisRun, filetype := Query(file.Name())
 
-			if thislevel > level {
+			if !filetype.IsSSTable() {
 				continue
 			}
-			if thislevel < level {
-				run = -1
+
+			if thislevel != level {
+				continue
 			}
+
 			if dbgot != dbname {
 				panic("GetRun() :: Bad database names (not matching)!")
 			}
-			if !filetype.IsSSTable() {
-				panic("GetRun() :: Not a database file!")
+
+			if thisRun > run {
+				run = thisRun
 			}
 		}
 	}
@@ -182,13 +189,13 @@ func GetLastRun(relativepath, dbname string, level int) (run int) {
 }
 
 // GetLastLog returns the index of the last log file at the specified path for the given database.
-func GetLastLog(relativepath string, dbname string) (logno int) {
+func GetLastLog(relativepath string, dbname string) int {
 	files, err := ioutil.ReadDir(relativepath)
 	if err != nil {
 		panic(err)
 	}
 
-	logno = -1
+	logno := -1
 
 	// Since 'files' is sorted, we get the last non-dir entry.
 
@@ -199,18 +206,24 @@ func GetLastLog(relativepath string, dbname string) (logno int) {
 		} else {
 			dbgot := ""
 			filetype := TypeLog
-			dbgot, logno, logno, filetype = Query(file.Name())
+			dbgot, myLogNo, _, filetype := Query(file.Name())
+
+			if filetype != TypeLog {
+				continue
+			}
 
 			if dbgot != dbname {
 				panic("GetLastLog() :: Bad database names (not matching)!")
 			}
-			if filetype != TypeLog {
-				panic("GetLastLog() :: Not a log file!")
+
+			if myLogNo > logno {
+				logno = myLogNo
 			}
+
 		}
 	}
 
-	return
+	return logno
 }
 
 // ToFileType tries to convert a string into a FileType object. Will panic if no string is a match.

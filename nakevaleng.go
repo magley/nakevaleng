@@ -15,80 +15,135 @@ import (
 )
 
 func main() {
-	// --------------------------------------------------------------------------------------------
-	// SSTable
-
 	const (
 		dataDir = "data/"
 		dbName  = "nakevaleng"
 	)
 
-	// Write some data
+	//------------------------------------------------------------------
+	// Our data
 
-	skipli := skiplist.New(3)
-	skipli.Write(record.NewFromString("Key00", "Val"))
-	skipli.Write(record.NewFromString("Key04", "Val"))
-	skipli.Write(record.NewFromString("Key02", "Val"))
-	skipli.Write(record.NewFromString("Key01", "Val"))
-	skipli.Write(record.NewFromString("Key05", "Val"))
-	skipli.Write(record.NewFromString("Key03", "Val"))
-
-	lvl := 1
-	run := filename.GetLastRun(dataDir, dbName, lvl) + 1
-
-	sstable.MakeTable(dataDir, dbName, lvl, run, &skipli)
-
-	// Test index file
-
-	keyToFind := "Key03"
-	byteOffset := sstable.FindIndex(
-		filename.Table(dataDir, dbName, lvl, run, filename.TypeIndex),
-		[]byte(keyToFind),
-		0,
-	)
-
-	if byteOffset == -1 {
-		fmt.Printf("%s is not in this table\n", keyToFind)
-	} else {
-		f, _ := os.Open(filename.Table(dataDir, dbName, lvl, run, filename.TypeData))
-		defer f.Close()
-		r := bufio.NewReader(f)
-
-		f.Seek(byteOffset, 0)
-		rec := record.Record{}
-		rec.Deserialize(r)
-		fmt.Println(rec.ToString())
+	data := []record.Record{
+		record.NewFromString("Key00", "in table 0"),
+		record.NewFromString("Key01", "in table 0"),
+		record.NewFromString("Key02", "in table 0"),
+		record.NewFromString("Key03", "in table 0"),
+		record.NewFromString("Key04", "in table 0"),
 	}
 
-	// Test summary file
+	// Put everything in a level 0 table
 
-	keyToFind = "Key03"
-	summaryByteOffset := sstable.FindSparseIndex(
-		filename.Table(dataDir, dbName, lvl, run, filename.TypeSummary),
-		[]byte(keyToFind),
-	)
+	skipli := skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
 
-	if summaryByteOffset == -1 {
-		fmt.Printf("%s is not in this table\n", keyToFind)
-	} else {
-		byteOffset := sstable.FindIndex(
-			filename.Table(dataDir, dbName, lvl, run, filename.TypeIndex),
-			[]byte(keyToFind),
-			summaryByteOffset,
-		)
+	// Flush to a level 1 run 0 sstable
 
-		if byteOffset == -1 {
-			fmt.Printf("%s is not in this table\n", keyToFind)
-		} else {
-			f, _ := os.Open(filename.Table(dataDir, dbName, lvl, run, filename.TypeData))
-			defer f.Close()
-			r := bufio.NewReader(f)
+	sstable.MakeTable(dataDir, dbName, 1, 0, &skipli)
 
-			f.Seek(byteOffset, 0)
-			rec := record.Record{}
-			rec.Deserialize(r)
-			fmt.Println(rec.ToString())
+	//------------------------------------------------------------------
+	// Now do the same thing but for a new table:
+
+	data = []record.Record{
+		record.NewFromString("Key03", "in table 1"),
+		record.NewFromString("Key04", "in table 1"),
+		record.NewFromString("Key05", "in table 1"),
+		record.NewFromString("Key06", "in table 1"),
+		record.NewFromString("Key07", "in table 1"),
+	}
+	skipli = skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
+	sstable.MakeTable(dataDir, dbName, 1, 1, &skipli)
+
+	//------------------------------------------------------------------
+	// Now do one on level 2 (normally higher levels store older data, but this is just an example)
+
+	data = []record.Record{
+		record.NewFromString("Key10", "in old table"),
+		record.NewFromString("Key11", "in old table"),
+		record.NewFromString("Key12", "in old table"),
+		record.NewFromString("Key13", "in old table"),
+		record.NewFromString("Key14", "in old table"),
+	}
+	skipli = skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
+	sstable.MakeTable(dataDir, dbName, 2, 0, &skipli)
+
+	//------------------------------------------------------------------
+	// Searching
+
+	keysToQuery := [...]string{
+		"Key05", // level 1, run 1
+		"Key04", // level 1, run 1
+		"Key01", // level 1, run 0
+		"Key11", // level 2, run 0
+		"Key22", // not found
+	}
+
+	for _, key := range keysToQuery {
+		greatestLevel := filename.GetLastLevel(dataDir, dbName)
+
+		for j := 1; j <= greatestLevel; j++ {
+			greatestRun := filename.GetLastRun(dataDir, dbName, j)
+
+			for i := greatestRun; i >= 0; i-- {
+				// Filter
+
+				q := bloomfilter.
+					DecodeFromFile(filename.Table(dataDir, dbName, j, i, filename.TypeFilter)).
+					Query([]byte(key))
+
+				if !q {
+					//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Summary
+
+				summaryOffset := sstable.FindSparseIndex(
+					filename.Table(dataDir, dbName, j, i, filename.TypeSummary),
+					[]byte(key),
+				)
+
+				if summaryOffset == -1 {
+					//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Index
+
+				indexOffset := sstable.FindIndex(
+					filename.Table(dataDir, dbName, j, i, filename.TypeIndex),
+					[]byte(key),
+					summaryOffset,
+				)
+
+				if indexOffset == -1 {
+					//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Data
+
+				{
+					f, _ := os.Open(filename.Table(dataDir, dbName, j, i, filename.TypeData))
+					defer f.Close()
+					r := bufio.NewReader(f)
+
+					f.Seek(indexOffset, 0)
+					rec := record.Record{}
+					rec.Deserialize(r)
+					fmt.Println(rec.ToString())
+					goto found
+				}
+			}
 		}
+	found:
 	}
 }
 

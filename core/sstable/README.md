@@ -35,7 +35,7 @@ summarytable.go
     each summary table entry (STE) points to one ITE, such that every K ITEs are assigned to one STE
     this way, every K-th ITE has a "copy" in the STE
     the total number of searches is N/K + K, instead of N (plot to see when this is better)
-    a summary table is comprised of STEs which have the following format (as defined by the 
+    a summary table is comprised of STEs, which have the following format (as defined by the 
     summaryTableEntry struct):
 
         +---------+----------+------ ... ------+
