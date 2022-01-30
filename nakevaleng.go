@@ -105,25 +105,25 @@ func main() {
 
 				// Summary
 
-				summaryOffset := sstable.FindSparseIndex(
+				ste := sstable.FindSummaryTableEntry(
 					filename.Table(dataDir, dbName, j, i, filename.TypeSummary),
 					[]byte(key),
 				)
 
-				if summaryOffset == -1 {
+				if ste.Offset == -1 {
 					//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
 					continue
 				}
 
 				// Index
 
-				indexOffset := sstable.FindIndex(
+				ite := sstable.FindIndexTableEntry(
 					filename.Table(dataDir, dbName, j, i, filename.TypeIndex),
 					[]byte(key),
-					summaryOffset,
+					ste.Offset,
 				)
 
-				if indexOffset == -1 {
+				if ite.Offset == -1 {
 					//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
 					continue
 				}
@@ -135,7 +135,7 @@ func main() {
 					defer f.Close()
 					r := bufio.NewReader(f)
 
-					f.Seek(indexOffset, 0)
+					f.Seek(ite.Offset, 0)
 					rec := record.Record{}
 					rec.Deserialize(r)
 					fmt.Println(rec.ToString())

@@ -5,130 +5,158 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"nakevaleng/util/filename"
 	"os"
 )
 
+// summaryTableEntry (STE) is the building block of a Summary Table.
+// Each block of ITEs is assigned a single STE, whose key matches that of the last ITE in the block.
 type summaryTableEntry struct {
-	KeySize uint64 // Size of Key (in bytes)
-	Offset  int64  // Offset in the index table (in bytes)
-	Key     []byte // Actual key
+	KeySize uint64
+	Offset  int64
+	Key     []byte
 }
 
-// serialize appends the contents of the summaryTableEntry using a buffered writer in a binary file.
-func (entry summaryTableEntry) serialize(writer *bufio.Writer) {
-	err := binary.Write(writer, binary.LittleEndian, entry.KeySize)
-	err = binary.Write(writer, binary.LittleEndian, entry.Offset)
-	err = binary.Write(writer, binary.LittleEndian, entry.Key)
+// summaryTableHeader (STH) is a special record written at the start of a Summary Table.
+// The STH only keeps the effective range of all STEs in the corresponding Summary Table.
+type summaryTableHeader struct {
+	MinKeySize uint64
+	MaxKeySize uint64
+	MinKey     []byte
+	MaxKey     []byte
+}
+
+// CalcSize returns the total effective size of the STE in bytes.
+func (ste summaryTableEntry) CalcSize() int64 {
+	return int64(8 + 8 + ste.KeySize)
+}
+
+// CalcSize returns the total effective size of the STH in bytes.
+func (sth summaryTableHeader) CalcSize() int64 {
+	return int64(8 + 8 + sth.MinKeySize + sth.MaxKeySize)
+}
+
+// Write appends the contents of the STE into a binary file. The order of the attributes is:
+//	KeySize, Offset, Key
+func (ste summaryTableEntry) Write(writer *bufio.Writer) {
+	binary.Write(writer, binary.LittleEndian, ste.KeySize)
+	binary.Write(writer, binary.LittleEndian, ste.Offset)
+	binary.Write(writer, binary.LittleEndian, ste.Key)
+}
+
+// Write appends the contents of the STH into a binary file. The order of the attributes is:
+//	MinKeySize, MaxKeySize, MinKey, MaxKey
+func (sth summaryTableHeader) Write(writer *bufio.Writer) {
+	binary.Write(writer, binary.LittleEndian, sth.MinKeySize)
+	binary.Write(writer, binary.LittleEndian, sth.MaxKeySize)
+	binary.Write(writer, binary.LittleEndian, sth.MinKey)
+	binary.Write(writer, binary.LittleEndian, sth.MaxKey)
+}
+
+// Read reads data from a binary file into an STE. Old data in the STH is overwritten. The order of
+// the attributes to be read is:
+//	KeySize, Offset, Key
+// KeySize determines how many bytes to read for the Key field.
+// Returns true if an unexpected EOF error is caught (io.EOF or io.ErrUnexpectedEOF).
+func (ste *summaryTableEntry) Read(reader *bufio.Reader) (eof bool) {
+	err := binary.Read(reader, binary.LittleEndian, &ste.KeySize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
+
+	err = binary.Read(reader, binary.LittleEndian, &ste.Offset)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
+
+	ste.Key = make([]byte, ste.KeySize)
+	err = binary.Read(reader, binary.LittleEndian, &ste.Key)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 
 	if err != nil {
 		panic(err.Error())
 	}
+
+	return false
 }
 
-// makeSummaryTable creates a new summary table from the entries stored in an index table
-//	path      `path to the directory where the table will be created`
-//	dbname    `name of the database`
-//	level     `lsm tree level this table belongs to`
-//	run       `ordinal number of the run on the given level for this table`
-//	interval  `how many index entries make up a single summary entry.
-//			  non-positive values are not allowed. if unsure, use 2`
-func makeSummaryTable(path string, dbname string, level int, run int, interval int) {
-	if interval <= 0 {
-		panic("makeSummaryTable() :: interval must be >= 1!")
+// Read reads data from a binary file into an STH. Old data in the STH is overwritten. The order of
+// the atrtibutes to be read is:
+//	MinKeySize, MaxKeySize, MinKey, MaxKey
+// MinKeySize and MaxKeySize determine how many bytes to read for the MinKey and MaxKey field.
+// Returns true if an unexpected EOF error is caught (io.EOF or io.ErrUnexpectedEOF).
+func (sth *summaryTableHeader) Read(reader *bufio.Reader) bool {
+	err := binary.Read(reader, binary.LittleEndian, &sth.MinKeySize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
 	}
 
-	fnameIndex := filename.Table(path, dbname, level, run, filename.TypeIndex)
-	fnameSummary := filename.Table(path, dbname, level, run, filename.TypeSummary)
+	err = binary.Read(reader, binary.LittleEndian, &sth.MaxKeySize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 
-	fI, err := os.Open(fnameIndex)
+	sth.MinKey = make([]byte, sth.MinKeySize)
+	sth.MaxKey = make([]byte, sth.MaxKeySize)
+
+	err = binary.Read(reader, binary.LittleEndian, &sth.MinKey)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
+
+	err = binary.Read(reader, binary.LittleEndian, &sth.MaxKey)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
+
 	if err != nil {
-		panic(err)
+		panic(err.Error())
 	}
-	defer fI.Close()
 
-	fS, err := os.Create(fnameSummary)
-	if err != nil {
-		panic(err)
-	}
-	defer fI.Close()
-
-	r := bufio.NewReader(fI)
-	w := bufio.NewWriter(fS)
-	defer w.Flush()
-
-	summary := summaryTableEntry{} // the STE
-	k := 0                         // counter for how many ITEs we've read for the current STE
-	offset := int64(0)             // current offset in the ITE file
-	isEof := false                 // is it EOF?
-
-	for !isEof {
-		index := indexTableEntry{}
-		isEof = index.deserialize(r)
-
-		// Propagate minimal value of each index entry batch for the current summary entry.
-		if k == 0 {
-			summary.KeySize = index.KeySize
-			summary.Key = index.Key
-			summary.Offset = offset
-		}
-
-		// Update counter and offset.
-		k += 1
-		offset += index.totalSize()
-
-		// Write summary entry because A) we read through interval-many index entries or B) EOF
-		if k%interval == 0 || isEof {
-			k = 0
-			summary.serialize(w)
-		}
-	}
+	return false
 }
 
-// FindSparseIndex tries to find the byte offset of an ITE from its key inside the summary file.
-//	fname   `full filename (including path) of the SUMMARY file, assumed to be valid`
-//	key     `key to look for`
-//
-//	returns `byte offset inside the index table to look from, or -1 if not found`
-func FindSparseIndex(fname string, key []byte) (offset int64) {
-	f, err := os.Open(fname)
+// FindSummaryTableEntry searches a Summary Table, looking for an STE with the specified key.
+// If no STE with the desired key is found, the return value's Offset field equals -1.
+func FindSummaryTableEntry(summaryTableFname string, key []byte) summaryTableEntry {
+	f, err := os.Open(summaryTableFname)
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
-
 	r := bufio.NewReader(f)
 
+	// Header
+
+	sth := summaryTableHeader{}
+	sth.Read(r)
+
+	cmp := bytes.Compare(sth.MinKey, key)
+	if cmp > 0 {
+		return summaryTableEntry{Offset: -1}
+	}
+	cmp = bytes.Compare(key, sth.MaxKey)
+	if cmp > 0 {
+		return summaryTableEntry{Offset: -1}
+	}
+
+	// STEs
+
 	ste := summaryTableEntry{}
-	stePrev := summaryTableEntry{Offset: -1}
 
-	for true {
-		err := binary.Read(r, binary.LittleEndian, &ste.KeySize)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return -1
-		}
-
-		err = binary.Read(r, binary.LittleEndian, &ste.Offset)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return -1
-		}
-
-		ste.Key = make([]byte, ste.KeySize)
-		err = binary.Read(r, binary.LittleEndian, &ste.Key)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return -1
+	for {
+		if ste.Read(r) {
+			ste.Offset = -1
+			break
 		}
 
 		cmp := bytes.Compare(key, ste.Key)
 
-		if cmp == 0 {
-			return ste.Offset
-		} else if cmp > 0 {
-			stePrev = ste
-		} else if cmp < 0 {
-			return stePrev.Offset
+		if cmp <= 0 {
+			break
 		}
 	}
 
-	return -1
+	return ste
 }

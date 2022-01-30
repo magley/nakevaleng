@@ -39,7 +39,7 @@ filename
                 created by an app which decided that db files are prefixed by 'myapplication'
                 on level 2 (second level in the lsm tree)
                 on run 5 (sixth table on level 2)
-                stores the merkletree generated from the data
+                stores the index summary table generated from the index table
 
     wal
 
