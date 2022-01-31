@@ -1,9 +1,5 @@
 package lsmtree
 
-// TODO: merge() shouldn't return the records. What if there's billions of them? Find a way to use
-// the sstable functions that work both for memtables AND for in-place records
-// TODO: consider using a real priority queue
-
 import (
 	"bufio"
 	"bytes"
@@ -21,13 +17,14 @@ const (
 	RUN_MAX = 2 // How many runs can a level have
 )
 
+// A recordHandlePair stores a record with minimal info regarding the file where the record is in.
 type recordHandlePair struct {
-	Rec    record.Record
-	Handle int
+	Rec    record.Record // The record object.
+	Handle int           // Index for a file. Meaningless without context.
 }
 
 // needsCompaction checks if the given level in the LSM tree is ready for compaction. A compaction
-// should happen whenever the current amount of runs on a signle level exceeds the maximum runs on
+// should happen whenever the current amount of runs on a single level exceeds the maximum runs on
 // a level configured for the database.
 func needsCompaction(path, dbname string, level int) bool {
 	return filename.GetLastRun(path, dbname, level) >= RUN_MAX-1
@@ -101,7 +98,7 @@ func Compact(path, dbname string, level int) {
 	Compact(path, dbname, level+1)
 }
 
-// Merge performs a k-way merge for the tables on a given level and stores the result in a slice of
+// merge performs a k-way merge for the tables on a given level and stores the result in a slice of
 // records, which can then be written to a file.
 // infile keeps a pointer to file handles for each Data table on a given level, opened for reading.
 func merge(infile []*os.File) []record.Record {
@@ -115,7 +112,7 @@ func merge(infile []*os.File) []record.Record {
 		readers = append(readers, rd)
 	}
 
-	// Priority queue (implemented as a slice with sorting).
+	// Priority queue (implemented as a slice with sorting). TODO: Use a heap.
 
 	pq := []recordHandlePair{}
 

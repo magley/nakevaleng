@@ -30,7 +30,7 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 	offsetIndex := int64(0)   // Refers to the offset in a Data table, used in an Index table
 	offsetSummary := int64(0) // Refers to the offset in an Index table, used in a Summary table
 	k := 0                    // How ITEs have been written so far for the current STE
-	summaryBlockSize := 3     // TODO: Make this configurable
+	summaryPageSize := 3      // TODO: Make this configurable
 
 	// Summary Table: write header first, and then the entires. Problem: the header depends on the
 	// entries' data. One solution is to do a 2-pass but it results in ugly code. It's actually OK
@@ -62,7 +62,7 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 
 		// For every block of summaryBlockSize-many ITEs, create one STE.
 
-		if k%(summaryBlockSize-1) == 0 || n == nil {
+		if k%(summaryPageSize-1) == 0 || n == nil {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 

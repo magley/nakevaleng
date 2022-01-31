@@ -102,7 +102,7 @@ func search(key string) {
 }
 
 func mainSSTable() {
-	fmt.Println("Please wait, making a sstable forces a sleep to make differnt timestamps...")
+	fmt.Println("Please wait, making a sstable forces a sleep to make different timestamps...")
 
 	//------------------------------------------------------------------
 	// Our data
@@ -204,8 +204,6 @@ func main2() {
 	dbname, logno, _, ftype := filename.Query(fnamelog3)
 	fmt.Println(dbname == "nakevaleng", logno == logNo3, ftype == filename.TypeLog)
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Skiplist
 
@@ -278,8 +276,6 @@ func main2() {
 		}
 	}
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Record
 
@@ -337,8 +333,6 @@ func main2() {
 	fmt.Println("Rec1:", rec1_from_file.ToString())
 	fmt.Println("Rec2:", rec2_from_file.ToString())
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Count-Min Sketch
 
@@ -375,8 +369,6 @@ func main2() {
 	fmt.Println(cms2.Query([]byte("yellow")))
 	fmt.Println(cms2.Query([]byte("orange")))
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Bloom Filter.
 
@@ -408,8 +400,6 @@ func main2() {
 
 	bf2 := bloomfilter.DecodeFromFile("data/filter.db")
 	fmt.Println(bf2.Query([]byte("KEY04")))
-
-	fmt.Println("\n=================================================\n")
 
 	//---------------------------------------------------------------------------------------------
 	// Merkle Tree.
@@ -443,6 +433,4 @@ func main2() {
 
 	fmt.Println("mt is valid:\t", mt.Validate())
 	fmt.Println("mt2 is valid:\t", mt2.Validate())
-
-	fmt.Println("\n=================================================\n")
 }
