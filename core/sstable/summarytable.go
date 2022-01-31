@@ -11,18 +11,19 @@ import (
 // summaryTableEntry (STE) is the building block of a Summary Table.
 // Each block of ITEs is assigned a single STE, whose key matches that of the last ITE in the block.
 type summaryTableEntry struct {
-	KeySize uint64
-	Offset  int64
-	Key     []byte
+	KeySize uint64 // How many bytes does Key take
+	Offset  int64  // Relative address of the ITE page in the Index table
+	Key     []byte // The key of the last ITE in the page
 }
 
 // summaryTableHeader (STH) is a special record written at the start of a Summary Table.
-// The STH only keeps the effective range of all STEs in the corresponding Summary Table.
+// STH keeps the range of the Index Table, and total bytes all STEs take up in the Summary Table.
 type summaryTableHeader struct {
-	MinKeySize uint64
-	MaxKeySize uint64
-	MinKey     []byte
-	MaxKey     []byte
+	MinKeySize uint64 // How many bytes does MinKey take
+	MaxKeySize uint64 // How many bytes does MaxKey take
+	Payload    uint64 // How many bytes do all STEs in this table take
+	MinKey     []byte // First key in the corresponding Index table
+	MaxKey     []byte // Last key in the corresponding Index table
 }
 
 // CalcSize returns the total effective size of the STE in bytes.
@@ -32,7 +33,7 @@ func (ste summaryTableEntry) CalcSize() int64 {
 
 // CalcSize returns the total effective size of the STH in bytes.
 func (sth summaryTableHeader) CalcSize() int64 {
-	return int64(8 + 8 + sth.MinKeySize + sth.MaxKeySize)
+	return int64(8 + 8 + 8 + sth.MinKeySize + sth.MaxKeySize)
 }
 
 // Write appends the contents of the STE into a binary file. The order of the attributes is:
@@ -44,15 +45,16 @@ func (ste summaryTableEntry) Write(writer *bufio.Writer) {
 }
 
 // Write appends the contents of the STH into a binary file. The order of the attributes is:
-//	MinKeySize, MaxKeySize, MinKey, MaxKey
+//	MinKeySize, MaxKeySize, Payload, MinKey, MaxKey
 func (sth summaryTableHeader) Write(writer *bufio.Writer) {
 	binary.Write(writer, binary.LittleEndian, sth.MinKeySize)
 	binary.Write(writer, binary.LittleEndian, sth.MaxKeySize)
+	binary.Write(writer, binary.LittleEndian, sth.Payload)
 	binary.Write(writer, binary.LittleEndian, sth.MinKey)
 	binary.Write(writer, binary.LittleEndian, sth.MaxKey)
 }
 
-// Read reads data from a binary file into an STE. Old data in the STH is overwritten. The order of
+// Read reads data from a bytes reader into an STE. Old data in the STH is overwritten. The order of
 // the attributes to be read is:
 //	KeySize, Offset, Key
 // KeySize determines how many bytes to read for the Key field.
@@ -83,7 +85,7 @@ func (ste *summaryTableEntry) Read(reader *bufio.Reader) (eof bool) {
 
 // Read reads data from a binary file into an STH. Old data in the STH is overwritten. The order of
 // the atrtibutes to be read is:
-//	MinKeySize, MaxKeySize, MinKey, MaxKey
+//	MinKeySize, MaxKeySize, Payload, MinKey, MaxKey
 // MinKeySize and MaxKeySize determine how many bytes to read for the MinKey and MaxKey field.
 // Returns true if an unexpected EOF error is caught (io.EOF or io.ErrUnexpectedEOF).
 func (sth *summaryTableHeader) Read(reader *bufio.Reader) bool {
@@ -93,6 +95,11 @@ func (sth *summaryTableHeader) Read(reader *bufio.Reader) bool {
 	}
 
 	err = binary.Read(reader, binary.LittleEndian, &sth.MaxKeySize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
+
+	err = binary.Read(reader, binary.LittleEndian, &sth.Payload)
 	if err == io.EOF || err == io.ErrUnexpectedEOF {
 		return true
 	}
@@ -127,7 +134,7 @@ func FindSummaryTableEntry(summaryTableFname string, key []byte) summaryTableEnt
 	defer f.Close()
 	r := bufio.NewReader(f)
 
-	// Header
+	// Header and range check.
 
 	sth := summaryTableHeader{}
 	sth.Read(r)
@@ -141,8 +148,15 @@ func FindSummaryTableEntry(summaryTableFname string, key []byte) summaryTableEnt
 		return summaryTableEntry{Offset: -1}
 	}
 
-	// STEs
+	// Load all STEs into memory and read from them.
 
+	buf := make([]byte, sth.Payload)
+	_, err = io.ReadFull(r, buf)
+	if err != nil {
+		panic(err)
+	}
+
+	r = bufio.NewReader(bytes.NewBuffer(buf))
 	ste := summaryTableEntry{}
 
 	for {

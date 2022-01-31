@@ -33,7 +33,8 @@ summarytable.go
 
     An STE's key matches the key of the last ITE in a block.
     Searching a Summary Table is done by comparing the maximal key in each block.
-    An STH holds the keys of the first and last STE in the Summary Table, for quick range-checks.
+    An STH holds the keys of the first and last ITE in the Index Table, for quick range-checks.
+    It also keeps the total amount of bytes needed for all [ STE ]s.
     The format of an STE and STH is defined by summaryTableEntry and indexTableEntry structures.
 
 sstable.go

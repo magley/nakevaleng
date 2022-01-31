@@ -27,47 +27,65 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 	fSummary, _ := os.Create(fnameSummary)
 	wSummary := bufio.NewWriter(fSummary)
 
-	offsetIndex := int64(0)
-	offsetSummary := int64(0)
-	k := 0
-	summaryBlockSize := 3 // TODO: Make this configurable
+	offsetIndex := int64(0)   // Refers to the offset in a Data table, used in an Index table
+	offsetSummary := int64(0) // Refers to the offset in an Index table, used in a Summary table
+	k := 0                    // How ITEs have been written so far for the current STE
+	summaryBlockSize := 3     // TODO: Make this configurable
 
-	// First pass: header of the Summary Table.
+	// Summary Table: write header first, and then the entires. Problem: the header depends on the
+	// entries' data. One solution is to do a 2-pass but it results in ugly code. It's actually OK
+	// to put all the entries into memory first and dump them to disk later, because Summary tables
+	// are meant to be small enough to keep in memory when reading (unlike Index tables).
 
-	minKey := list.Header.Next[0].Data.Key
-	maxKey := make([]byte, 0)
-	for n := list.Header.Next[0]; n != nil; n = n.Next[0] {
-		if n.Next[0] == nil {
-			maxKey = n.Data.Key
-		}
-	}
-
-	sth := summaryTableHeader{
-		MinKeySize: uint64(len(minKey)), MinKey: minKey,
-		MaxKeySize: uint64(len(maxKey)), MaxKey: maxKey,
-	}
-
-	sth.Write(wSummary)
-
-	// Second pass: Index Table and Summary Table
+	summaryHeader := summaryTableHeader{}
+	summaryEntries := make([]summaryTableEntry, 0)
 
 	for n := list.Header.Next[0]; n != nil; {
 		record := n.Data
 
+		// First node holds min key.
+
+		if n == list.Header.Next[0] {
+			summaryHeader.MinKey = record.Key
+		}
+
+		// Immediately write the ITE for this record.
+
 		ite := indexTableEntry{KeySize: record.KeySize, Offset: offsetIndex, Key: record.Key}
 		ite.Write(wIndex)
-
 		offsetIndex += int64(record.TotalSize())
+
+		// Move to next node and update counter (this is why n can't be updated in the loop decl.)
+
 		n = n.Next[0]
 		k += 1
 
+		// For every block of summaryBlockSize-many ITEs, create one STE.
+
 		if k%(summaryBlockSize-1) == 0 || n == nil {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
-			ste.Write(wSummary)
+			summaryEntries = append(summaryEntries, ste)
 
 			offsetSummary += ite.CalcSize()
+			summaryHeader.Payload += uint64(ste.CalcSize())
+
 			k = 0
 		}
+
+		// Last node holds max key.
+
+		if n == nil {
+			summaryHeader.MaxKey = record.Key
+		}
+	}
+
+	// Write entire summary.
+
+	summaryHeader.MinKeySize = uint64(len(summaryHeader.MinKey))
+	summaryHeader.MaxKeySize = uint64(len(summaryHeader.MaxKey))
+	summaryHeader.Write(wSummary)
+	for _, ste := range summaryEntries {
+		ste.Write(wSummary)
 	}
 
 	wSummary.Flush()

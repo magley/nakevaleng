@@ -10,9 +10,9 @@ import (
 
 // indexTableEntry (ITE) is the building block of an Index Table.
 type indexTableEntry struct {
-	KeySize uint64
-	Offset  int64
-	Key     []byte
+	KeySize uint64 // How many bytes does Key take
+	Offset  int64  // Relative address of the record in the Data table
+	Key     []byte // The key of the record
 }
 
 // CalcSize returns the total effective size of the ITE in bytes.
