@@ -17,13 +17,13 @@ const (
 type FileType int
 
 const (
-	TypeBad               = -1
-	TypeData     FileType = iota // Data segment
-	TypeFilter                   // Bloom filter
-	TypeIndex                    // Index
-	TypeSummary                  // Index summary
-	TypeMetadata                 // Merkle tree
-	TypeLog                      // Log
+	TypeBad      FileType = iota - 1
+	TypeData              // Data segment
+	TypeFilter            // Bloom filter
+	TypeIndex             // Index table
+	TypeSummary           // Index summary table
+	TypeMetadata          // Merkle tree
+	TypeLog               // Log
 )
 
 // fileTypeAsString is used for conversion between FileType and string.
@@ -147,6 +147,7 @@ func GetLastLevel(relativepath, dbname string) int {
 }
 
 // GetRun returns the run at given level at the specified path for the given database name.
+// Returns a number from 0 onwards.
 // Returns -1 if the level does not exist (i.e. it's empty)
 func GetLastRun(relativepath, dbname string, level int) int {
 	if level <= 0 {

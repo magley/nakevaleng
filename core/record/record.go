@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"time"
 )
 
@@ -106,19 +107,46 @@ func (rec *Record) CalcCRC() {
 // Deserialize() reads data from buffered reader and overwrites this record.
 // The checksum is recalculated and compared with the one read from the file.
 // The function will panic if they don't match.
-func (rec *Record) Deserialize(reader *bufio.Reader) {
+// If the reader reaches an EOF, eof will be set to true.
+func (rec *Record) Deserialize(reader *bufio.Reader) (eof bool) {
+	eof = false
+
 	err := binary.Read(reader, binary.LittleEndian, &rec.Crc)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.Timestamp)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.Status)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.TypeInfo)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.KeySize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.ValueSize)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 
 	rec.Key = make([]byte, rec.KeySize)
 	rec.Value = make([]byte, rec.ValueSize)
 
 	err = binary.Read(reader, binary.LittleEndian, &rec.Key)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 	err = binary.Read(reader, binary.LittleEndian, &rec.Value)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return true
+	}
 
 	if err != nil {
 		panic(err.Error())
@@ -132,6 +160,8 @@ func (rec *Record) Deserialize(reader *bufio.Reader) {
 		fmt.Println(rec.ToString())
 		panic("")
 	}
+
+	return false
 }
 
 // Serialize() appends the contents of the Record using a buffered writer, in binary mode.

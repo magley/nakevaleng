@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 
+	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
@@ -14,21 +16,103 @@ import (
 	"nakevaleng/util/filename"
 )
 
+const (
+	path   = "data/"
+	dbName = "nakevaleng"
+)
+
 func main() {
-	const (
-		dataDir = "data/"
-		dbName  = "nakevaleng"
-	)
+	mainSSTable()
+	lsmtree.Compact(path, dbName, 1)
+
+	//////////////////////////////////////////////////////////////////////
+
+	keysToQuery := [...]string{
+		"Key00",
+		"Key02",
+		"Key04",
+		"Key01",
+		"Key08",
+		"Key09",
+	}
+
+	for _, key := range keysToQuery {
+		search(key)
+	}
+}
+
+func search(key string) {
+	greatestLevel := filename.GetLastLevel(path, dbName)
+
+	for j := 1; j <= greatestLevel; j++ {
+		greatestRun := filename.GetLastRun(path, dbName, j)
+
+		for i := greatestRun; i >= 0; i-- {
+			// Filter
+
+			q := bloomfilter.
+				DecodeFromFile(filename.Table(path, dbName, j, i, filename.TypeFilter)).
+				Query([]byte(key))
+
+			if !q {
+				//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
+				continue
+			}
+
+			// Summary
+
+			ste := sstable.FindSummaryTableEntry(
+				filename.Table(path, dbName, j, i, filename.TypeSummary),
+				[]byte(key),
+			)
+
+			if ste.Offset == -1 {
+				//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
+				continue
+			}
+
+			// Index
+
+			ite := sstable.FindIndexTableEntry(
+				filename.Table(path, dbName, j, i, filename.TypeIndex),
+				[]byte(key),
+				ste.Offset,
+			)
+
+			if ite.Offset == -1 {
+				//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
+				continue
+			}
+
+			// Data
+
+			{
+				f, _ := os.Open(filename.Table(path, dbName, j, i, filename.TypeData))
+				defer f.Close()
+				r := bufio.NewReader(f)
+
+				f.Seek(ite.Offset, 0)
+				rec := record.Record{}
+				rec.Deserialize(r)
+				fmt.Println(rec.ToString())
+				return
+			}
+		}
+	}
+}
+
+func mainSSTable() {
+	fmt.Println("Please wait, making a sstable forces a sleep to make differnt timestamps...")
 
 	//------------------------------------------------------------------
 	// Our data
 
 	data := []record.Record{
-		record.NewFromString("Key00", "in table 0"),
-		record.NewFromString("Key01", "in table 0"),
-		record.NewFromString("Key02", "in table 0"),
-		record.NewFromString("Key03", "in table 0"),
-		record.NewFromString("Key04", "in table 0"),
+		record.NewFromString("Key00", "0"),
+		record.NewFromString("Key01", "0"),
+		record.NewFromString("Key02", "0"),
+		record.NewFromString("Key03", "0"),
+		record.NewFromString("Key04", "0"),
 	}
 
 	// Put everything in a level 0 table
@@ -40,111 +124,26 @@ func main() {
 
 	// Flush to a level 1 run 0 sstable
 
-	sstable.MakeTable(dataDir, dbName, 1, 0, &skipli)
+	sstable.MakeTable(path, dbName, 1, 0, &skipli)
+	time.Sleep(1 * time.Second)
 
 	//------------------------------------------------------------------
 	// Now do the same thing but for a new table:
 
 	data = []record.Record{
-		record.NewFromString("Key03", "in table 1"),
-		record.NewFromString("Key04", "in table 1"),
-		record.NewFromString("Key05", "in table 1"),
-		record.NewFromString("Key06", "in table 1"),
-		record.NewFromString("Key07", "in table 1"),
+		record.NewFromString("Key03", "1"),
+		record.NewFromString("Key04", "1"),
+		record.NewFromString("Key05", "1"),
+		record.NewFromString("Key06", "0"),
+		record.NewFromString("Key07", "0"),
+		record.NewFromString("Key08", "0"),
 	}
 	skipli = skiplist.New(4)
 	for _, d := range data {
 		skipli.Write(d)
 	}
-	sstable.MakeTable(dataDir, dbName, 1, 1, &skipli)
-
-	//------------------------------------------------------------------
-	// Now do one on level 2 (normally higher levels store older data, but this is just an example)
-
-	data = []record.Record{
-		record.NewFromString("Key10", "in old table"),
-		record.NewFromString("Key11", "in old table"),
-		record.NewFromString("Key12", "in old table"),
-		record.NewFromString("Key13", "in old table"),
-		record.NewFromString("Key14", "in old table"),
-	}
-	skipli = skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-	sstable.MakeTable(dataDir, dbName, 2, 0, &skipli)
-
-	//------------------------------------------------------------------
-	// Searching
-
-	keysToQuery := [...]string{
-		"Key05", // level 1, run 1
-		"Key04", // level 1, run 1
-		"Key01", // level 1, run 0
-		"Key11", // level 2, run 0
-		"Key22", // not found
-	}
-
-	for _, key := range keysToQuery {
-		greatestLevel := filename.GetLastLevel(dataDir, dbName)
-
-		for j := 1; j <= greatestLevel; j++ {
-			greatestRun := filename.GetLastRun(dataDir, dbName, j)
-
-			for i := greatestRun; i >= 0; i-- {
-				// Filter
-
-				q := bloomfilter.
-					DecodeFromFile(filename.Table(dataDir, dbName, j, i, filename.TypeFilter)).
-					Query([]byte(key))
-
-				if !q {
-					//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
-
-				// Summary
-
-				ste := sstable.FindSummaryTableEntry(
-					filename.Table(dataDir, dbName, j, i, filename.TypeSummary),
-					[]byte(key),
-				)
-
-				if ste.Offset == -1 {
-					//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
-
-				// Index
-
-				ite := sstable.FindIndexTableEntry(
-					filename.Table(dataDir, dbName, j, i, filename.TypeIndex),
-					[]byte(key),
-					ste.Offset,
-				)
-
-				if ite.Offset == -1 {
-					//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
-
-				// Data
-
-				{
-					f, _ := os.Open(filename.Table(dataDir, dbName, j, i, filename.TypeData))
-					defer f.Close()
-					r := bufio.NewReader(f)
-
-					f.Seek(ite.Offset, 0)
-					rec := record.Record{}
-					rec.Deserialize(r)
-					fmt.Println(rec.ToString())
-					goto found
-				}
-			}
-		}
-	found:
-	}
+	sstable.MakeTable(path, dbName, 1, 1, &skipli)
+	time.Sleep(1 * time.Second)
 }
 
 func main2() {
