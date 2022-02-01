@@ -7,12 +7,204 @@ import (
 
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
+	"nakevaleng/core/sstable"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/merkletree"
+	"nakevaleng/util/filename"
 )
 
 func main() {
+	const (
+		dataDir = "data/"
+		dbName  = "nakevaleng"
+	)
+
+	//------------------------------------------------------------------
+	// Our data
+
+	data := []record.Record{
+		record.NewFromString("Key00", "in table 0"),
+		record.NewFromString("Key01", "in table 0"),
+		record.NewFromString("Key02", "in table 0"),
+		record.NewFromString("Key03", "in table 0"),
+		record.NewFromString("Key04", "in table 0"),
+	}
+
+	// Put everything in a level 0 table
+
+	skipli := skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
+
+	// Flush to a level 1 run 0 sstable
+
+	sstable.MakeTable(dataDir, dbName, 1, 0, &skipli)
+
+	//------------------------------------------------------------------
+	// Now do the same thing but for a new table:
+
+	data = []record.Record{
+		record.NewFromString("Key03", "in table 1"),
+		record.NewFromString("Key04", "in table 1"),
+		record.NewFromString("Key05", "in table 1"),
+		record.NewFromString("Key06", "in table 1"),
+		record.NewFromString("Key07", "in table 1"),
+	}
+	skipli = skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
+	sstable.MakeTable(dataDir, dbName, 1, 1, &skipli)
+
+	//------------------------------------------------------------------
+	// Now do one on level 2 (normally higher levels store older data, but this is just an example)
+
+	data = []record.Record{
+		record.NewFromString("Key10", "in old table"),
+		record.NewFromString("Key11", "in old table"),
+		record.NewFromString("Key12", "in old table"),
+		record.NewFromString("Key13", "in old table"),
+		record.NewFromString("Key14", "in old table"),
+	}
+	skipli = skiplist.New(4)
+	for _, d := range data {
+		skipli.Write(d)
+	}
+	sstable.MakeTable(dataDir, dbName, 2, 0, &skipli)
+
+	//------------------------------------------------------------------
+	// Searching
+
+	keysToQuery := [...]string{
+		"Key05", // level 1, run 1
+		"Key04", // level 1, run 1
+		"Key01", // level 1, run 0
+		"Key11", // level 2, run 0
+		"Key22", // not found
+	}
+
+	for _, key := range keysToQuery {
+		greatestLevel := filename.GetLastLevel(dataDir, dbName)
+
+		for j := 1; j <= greatestLevel; j++ {
+			greatestRun := filename.GetLastRun(dataDir, dbName, j)
+
+			for i := greatestRun; i >= 0; i-- {
+				// Filter
+
+				q := bloomfilter.
+					DecodeFromFile(filename.Table(dataDir, dbName, j, i, filename.TypeFilter)).
+					Query([]byte(key))
+
+				if !q {
+					//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Summary
+
+				ste := sstable.FindSummaryTableEntry(
+					filename.Table(dataDir, dbName, j, i, filename.TypeSummary),
+					[]byte(key),
+				)
+
+				if ste.Offset == -1 {
+					//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Index
+
+				ite := sstable.FindIndexTableEntry(
+					filename.Table(dataDir, dbName, j, i, filename.TypeIndex),
+					[]byte(key),
+					ste.Offset,
+				)
+
+				if ite.Offset == -1 {
+					//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
+					continue
+				}
+
+				// Data
+
+				{
+					f, _ := os.Open(filename.Table(dataDir, dbName, j, i, filename.TypeData))
+					defer f.Close()
+					r := bufio.NewReader(f)
+
+					f.Seek(ite.Offset, 0)
+					rec := record.Record{}
+					rec.Deserialize(r)
+					fmt.Println(rec.ToString())
+					goto found
+				}
+			}
+		}
+	found:
+	}
+}
+
+func main2() {
+	//---------------------------------------------------------------------------------------------
+	// Filename
+
+	// Create table filename from params
+
+	fname1 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeData)
+	fname2 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeFilter)
+	fname3 := filename.Table("data/", "nakevaleng", 1, 1, filename.TypeSummary)
+	fmt.Println(fname1)
+	fmt.Println(fname2)
+	fmt.Println(fname3)
+	os.Create(fname1)
+	os.Create(fname2)
+	os.Create(fname3)
+
+	// Create next run on level 1
+
+	nextRun := filename.GetLastRun("data/", "nakevaleng", 1) + 1
+	nextFnm := filename.Table("data/", "nakevaleng", 1, nextRun, filename.TypeData)
+	fmt.Println(nextFnm)
+	os.Create(nextFnm)
+
+	// Create next level (level 2)
+
+	nextLvl := filename.GetLastLevel("data/", "nakevaleng") + 1
+	nextRun2 := filename.GetLastRun("data/", "nakevaleng", nextLvl) + 1
+
+	nextFnm2 := filename.Table("data/", "nakevaleng", nextLvl, nextRun2, filename.TypeData)
+	fmt.Println(nextFnm2)
+	os.Create(nextFnm2)
+
+	// Querying
+
+	dbname, lvl, rn, ftype := filename.Query(nextFnm2)
+	fmt.Println(dbname == "nakevaleng", lvl == nextLvl, rn == nextRun2, ftype == filename.TypeData)
+
+	// Create log filename from params
+
+	fnamelog1 := filename.Log("data/log/", "nakevaleng", 0)
+	fnamelog2 := filename.Log("data/log/", "nakevaleng", 1)
+	fmt.Println(fnamelog1)
+	fmt.Println(fnamelog2)
+	os.Create(fnamelog1)
+	os.Create(fnamelog2)
+
+	// Create next log filename
+
+	logNo3 := filename.GetLastLog("data/log/", "nakevaleng") + 1
+	fnamelog3 := filename.Log("data/log/", "nakevaleng", logNo3)
+	fmt.Println(fnamelog3)
+	os.Create(fnamelog3)
+
+	// Querying
+
+	dbname, logno, _, ftype := filename.Query(fnamelog3)
+	fmt.Println(dbname == "nakevaleng", logno == logNo3, ftype == filename.TypeLog)
+
 	fmt.Println("\n=================================================\n")
 
 	//---------------------------------------------------------------------------------------------

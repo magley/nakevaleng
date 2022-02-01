@@ -25,6 +25,11 @@ type Record struct {
 	Value     []byte //
 }
 
+// TotalSize calculates the total number of bytes required to store the given record structure.
+func (rec Record) TotalSize() uint64 {
+	return 4 + 8 + 1 + 1 + 8 + 8 + rec.KeySize + rec.ValueSize
+}
+
 // New() creates a Record object with the key and value specified as byte slices.
 //	key	::	Key for this Record
 //	val	::	Value for this Record
@@ -89,8 +94,8 @@ func (rec Record) ToString() string {
 		rec.TypeInfo,
 		rec.KeySize,
 		rec.ValueSize,
-		rec.Key,
-		rec.Value,
+		string(rec.Key),
+		string(rec.Value),
 	)
 }
 
@@ -129,7 +134,7 @@ func (rec *Record) Deserialize(reader *bufio.Reader) {
 	}
 }
 
-// serialize() appends the contents of the Record using a buffered writer, in binary mode.
+// Serialize() appends the contents of the Record using a buffered writer, in binary mode.
 // The writer does not get flushed. It's up to the caller to invoke writer.Flush().
 func (rec Record) Serialize(writer *bufio.Writer) {
 	err := binary.Write(writer, binary.LittleEndian, rec.Crc)
