@@ -131,12 +131,12 @@ func mainSSTable() {
 	// Now do the same thing but for a new table:
 
 	data = []record.Record{
-		record.NewFromString("Key03", "1"),
-		record.NewFromString("Key04", "1"),
-		record.NewFromString("Key05", "1"),
-		record.NewFromString("Key06", "0"),
-		record.NewFromString("Key07", "0"),
-		record.NewFromString("Key08", "0"),
+		record.NewFromString("Key03", "++"),
+		record.NewFromString("Key04", "++"),
+		record.NewFromString("Key05", "++"),
+		record.NewFromString("Key06", "++"),
+		record.NewFromString("Key07", "++"),
+		record.NewFromString("Key08", "++"),
 	}
 	skipli = skiplist.New(4)
 	for _, d := range data {
