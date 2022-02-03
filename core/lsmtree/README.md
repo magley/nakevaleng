@@ -10,8 +10,6 @@ LSM Tree with size-tiered compaction:
     - this is called chaining
     - there is a maximum number of levels - K - which the database can have
     - compaction cannot happen on level K
-    - the Data table is kept in memory while all other tables are built in-place
-    - this can result in large memory usage when doing compaction, but building the merkle tree requires all nodes to be known
     
 Merging process:
     - nakevaleng uses a basic k-way merge algorithm

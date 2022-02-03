@@ -28,8 +28,7 @@ type Record struct {
 
 // Minimal context of a Record required to perform major compaction.
 type KeyContext struct {
-	KeySize uint64 // Size of Key (in bytes)
-	Key     []byte //
+	Key     []byte
 	RecSize uint64 // Size of the Record object this context was built from, using .TotalSize().
 }
 

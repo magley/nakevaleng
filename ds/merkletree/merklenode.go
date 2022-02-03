@@ -25,6 +25,16 @@ func (node *MerkleNode) ToString() string {
 	return hex.EncodeToString(node.Data[:])
 }
 
+// NewLeaf creates a MerkleNode as a leaf with contents hashed from 'data'.
+func NewLeaf(data []byte) MerkleNode {
+	h := sha1.Sum(data)
+	return MerkleNode{
+		Data:  h[:],
+		Left:  nil,
+		Right: nil,
+	}
+}
+
 // Append data to the specified file, with a file writer already open.
 //
 // Will not flush if flush is set to false.

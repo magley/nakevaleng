@@ -20,7 +20,6 @@ func MakeTable(path string, dbname string, level int, run int, list *skiplist.Sk
 		keycontexts := []record.KeyContext{}
 		for n := list.Header.Next[0]; n != nil; n = n.Next[0] {
 			keycontexts = append(keycontexts, record.KeyContext{
-				KeySize: n.Data.KeySize,
 				Key:     n.Data.Key,
 				RecSize: n.Data.TotalSize(),
 			})
@@ -54,7 +53,7 @@ func makeMetadata(path string, dbname string, level int, run int, list *skiplist
 	{
 		n := list.Header.Next[0]
 		for n != nil {
-			merkleNodes = append(merkleNodes, merkletree.MerkleNode{Data: n.Data.Value})
+			merkleNodes = append(merkleNodes, merkletree.NewLeaf(n.Data.Value))
 			n = n.Next[0]
 		}
 	}
@@ -95,7 +94,7 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 
 		// Write the ITE for this record.
 
-		ite := indexTableEntry{KeySize: kc.KeySize, Key: kc.Key, Offset: offsetIndex}
+		ite := indexTableEntry{KeySize: uint64(len(kc.Key)), Key: kc.Key, Offset: offsetIndex}
 		ite.Write(wIndex)
 		offsetIndex += int64(kc.RecSize)
 

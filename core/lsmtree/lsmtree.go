@@ -175,9 +175,8 @@ func merge(infile []*os.File, outDataFname string) ([]merkletree.MerkleNode, []r
 		// Write element to new SSTable.
 
 		head.Rec.Serialize(w)
-		mtleaves = append(mtleaves, merkletree.MerkleNode{Data: head.Rec.Value})
+		mtleaves = append(mtleaves, merkletree.NewLeaf(head.Rec.Value))
 		keyctx = append(keyctx, record.KeyContext{
-			KeySize: head.Rec.KeySize,
 			Key:     head.Rec.Key,
 			RecSize: head.Rec.TotalSize(),
 		})
