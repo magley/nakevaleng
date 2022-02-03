@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"nakevaleng/core/record"
-	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
+	"nakevaleng/ds/merkletree"
 	"nakevaleng/util/filename"
 	"os"
 	"sort"
@@ -72,13 +72,9 @@ func Compact(path, dbname string, level int) {
 
 	outLevel := level + 1
 	outRun := filename.GetLastRun(path, dbname, outLevel) + 1
-	resultingDataTable := merge(inFileHandles)
-
-	skipli := skiplist.New(4)
-	for _, d := range resultingDataTable {
-		skipli.Write(d)
-	}
-	sstable.MakeTable(path, dbname, outLevel, outRun, &skipli)
+	outDataFname := filename.Table(path, dbname, outLevel, outRun, filename.TypeData)
+	merkletreeLeaves, keyCtx := merge(inFileHandles, outDataFname)
+	sstable.MakeTableSecondaries(path, dbname, outLevel, outRun, merkletreeLeaves, keyCtx)
 
 	// Close everything and remove tables from the old level.
 
@@ -98,13 +94,26 @@ func Compact(path, dbname string, level int) {
 	Compact(path, dbname, level+1)
 }
 
-// merge performs a k-way merge for the tables on a given level and stores the result in a slice of
-// records, which can then be written to a file.
+// merge performs a k-way merge for the tables on a given level.
+// the Data table is written on disk immediately.
+// All secondary files are left to the caller to create, using what's returned by this function.
 // infile keeps a pointer to file handles for each Data table on a given level, opened for reading.
-func merge(infile []*os.File) []record.Record {
-	res := []record.Record{}
+// outDataFname is the filename of the resulting Data table that gets created.
+// Function returns a list of leaves for the corresponding Merkle tree and a list of KeyContext-s
+// from which everything else (bloom filter, index table, summary table) can be built.
+func merge(infile []*os.File, outDataFname string) ([]merkletree.MerkleNode, []record.KeyContext) {
+	f, err := os.Create(outDataFname)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	defer w.Flush()
 
-	// Each file gets a reader. Also, implicitly, each reader is assigned a number.
+	mtleaves := []merkletree.MerkleNode{}
+	keyctx := []record.KeyContext{}
+
+	// Each input file gets a reader. Also, implicitly, each reader is assigned a number.
 
 	readers := []*bufio.Reader{}
 	for _, f := range infile {
@@ -165,7 +174,13 @@ func merge(infile []*os.File) []record.Record {
 
 		// Write element to new SSTable.
 
-		res = append(res, head.Rec)
+		head.Rec.Serialize(w)
+		mtleaves = append(mtleaves, merkletree.MerkleNode{Data: head.Rec.Value})
+		keyctx = append(keyctx, record.KeyContext{
+			KeySize: head.Rec.KeySize,
+			Key:     head.Rec.Key,
+			RecSize: head.Rec.TotalSize(),
+		})
 
 		// Fetch next element for all files that require it (if the reader isn't at EOF).
 
@@ -180,5 +195,5 @@ func merge(infile []*os.File) []record.Record {
 		}
 	}
 
-	return res
+	return mtleaves, keyctx
 }

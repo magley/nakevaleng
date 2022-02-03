@@ -26,6 +26,13 @@ type Record struct {
 	Value     []byte //
 }
 
+// Minimal context of a Record required to perform major compaction.
+type KeyContext struct {
+	KeySize uint64 // Size of Key (in bytes)
+	Key     []byte //
+	RecSize uint64 // Size of the Record object this context was built from, using .TotalSize().
+}
+
 // TotalSize calculates the total number of bytes required to store the given record structure.
 func (rec Record) TotalSize() uint64 {
 	return 4 + 8 + 1 + 1 + 8 + 8 + rec.KeySize + rec.ValueSize
