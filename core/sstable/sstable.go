@@ -11,6 +11,10 @@ import (
 	"os"
 )
 
+const (
+	SUMMARY_PAGE_SIZE = 3
+)
+
 // MakeTable creates a new SSTable from the data given as a skiplist.
 // You should only use this when flushing a Memtable to a level 1 SStable (minor compaction).
 // For all other cases (i.e. when major compaction happens), use MakeTableSecondaries().
@@ -74,9 +78,6 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 
 	offsetIndex := int64(0)   // Refers to the offset in a Data table, used in an Index table
 	offsetSummary := int64(0) // Refers to the offset in an Index table, used in a Summary table
-	k := 0                    // How ITEs have been written so far for the current STE
-	summaryPageSize := 3      // TODO: Make this configurable
-
 	// Summary Table: write header first, and then the entires. Problem: the header depends on the
 	// entries' data. One solution is to do a 2-pass but it results in ugly code. It's actually OK
 	// to put all the entries into memory first and dump them to disk later, because Summary tables
@@ -100,14 +101,12 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 
 		// Create an STE if we've written k ITE's OR this is the last entry in the slice.
 
-		if k%(summaryPageSize-1) == 0 || i == len(keyctx)-1 {
+		if (i != 0 && i%(SUMMARY_PAGE_SIZE) == 0) || i == len(keyctx)-1 {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 
 			offsetSummary += ite.CalcSize()
 			summaryHeader.Payload += uint64(ste.CalcSize())
-
-			k = 0
 		}
 
 		// Last entry holds max key.
