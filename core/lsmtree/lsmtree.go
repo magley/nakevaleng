@@ -3,6 +3,7 @@ package lsmtree
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"nakevaleng/core/record"
 	"nakevaleng/core/sstable"
 	"nakevaleng/ds/merkletree"
@@ -14,7 +15,7 @@ import (
 const (
 	// TODO: Make this configurable
 	LVL_MAX = 4 // How many levels can the LSM tree have
-	RUN_MAX = 2 // How many runs can a level have
+	RUN_MAX = 3 // How many runs can a level have
 )
 
 // A recordHandlePair stores a record with minimal info regarding the file where the record is in.
@@ -88,6 +89,15 @@ func Compact(path, dbname string, level int) {
 		os.Remove(filename.Table(path, dbname, level, i, filename.TypeSummary))
 		os.Remove(filename.Table(path, dbname, level, i, filename.TypeMetadata))
 	}
+
+	// Debug output
+
+	s := "Merged :: "
+	for _, fn := range filenames {
+		s += fn + ", "
+	}
+	s += "into :: " + outDataFname
+	fmt.Println(s)
 
 	// Chaining (won't do anything if next level doesn't need compaction yet).
 

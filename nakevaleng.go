@@ -22,22 +22,63 @@ const (
 )
 
 func main() {
-	mainSSTable()
-	lsmtree.Compact(path, dbName, 1)
+	test()
 
 	//////////////////////////////////////////////////////////////////////
 
-	keysToQuery := [...]string{
+	keysToQuery := []string{
 		"Key00",
 		"Key02",
 		"Key04",
 		"Key01",
 		"Key08",
-		"Key09",
+		"Key22",
 	}
 
 	for _, key := range keysToQuery {
 		search(key)
+	}
+}
+
+func test() {
+	// Data
+
+	recs := []record.Record{
+		record.NewFromString("Key00", "0"),
+		record.NewFromString("Key01", "0"),
+		record.NewFromString("Key02", "0"),
+		record.NewFromString("Key03", "0"),
+		record.NewFromString("Key04", "0"),
+		record.NewFromString("Key05", "0"),
+		record.NewFromString("Key06", "0"),
+		record.NewFromString("Key07", "0"),
+	}
+	time.Sleep(1 * time.Second)
+	recs = append(recs, []record.Record{
+		record.NewFromString("Key04", "++"),
+		record.NewFromString("Key05", "++"),
+		record.NewFromString("Key06", "++"),
+		record.NewFromString("Key07", "++"),
+		record.NewFromString("Key08", "++"),
+		record.NewFromString("Key09", "++"),
+	}...)
+	rmvd := record.NewFromString("Key00", "<-removed")
+	rmvd.Status |= record.RECORD_TOMBSTONE_REMOVED
+	recs = append(recs, rmvd)
+
+	// Put
+
+	mtcap := 4
+	skipli := skiplist.New(4)
+
+	for i, rec := range recs {
+		skipli.Write(rec)
+		if skipli.Count == mtcap || i == len(recs)-1 {
+			nextRun := filename.GetLastRun(path, dbName, 1) + 1
+			sstable.MakeTable(path, dbName, 1, nextRun, &skipli)
+			skipli.Clear()
+			lsmtree.Compact(path, dbName, 1)
+		}
 	}
 }
 
@@ -55,7 +96,7 @@ func search(key string) {
 				Query([]byte(key))
 
 			if !q {
-				//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
+				//fmt.Printf("%s Not found @ [FILTER] @ L%d R%d\n", key, j, i)
 				continue
 			}
 
@@ -67,7 +108,7 @@ func search(key string) {
 			)
 
 			if ste.Offset == -1 {
-				//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
+				//fmt.Printf("%s Not found @ [SUMMARY] @ L%d R%d\n", key, j, i)
 				continue
 			}
 
@@ -80,7 +121,7 @@ func search(key string) {
 			)
 
 			if ite.Offset == -1 {
-				//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
+				//fmt.Printf("%s Not found @ [INDEX] @ L%d R%d\n", key, j, i)
 				continue
 			}
 
@@ -94,56 +135,13 @@ func search(key string) {
 				f.Seek(ite.Offset, 0)
 				rec := record.Record{}
 				rec.Deserialize(r)
-				fmt.Println(rec.ToString())
+				fmt.Printf("%s :: %s\n", key, rec.String())
 				return
 			}
 		}
 	}
-}
 
-func mainSSTable() {
-	fmt.Println("Please wait, making a sstable forces a sleep to make different timestamps...")
-
-	//------------------------------------------------------------------
-	// Our data
-
-	data := []record.Record{
-		record.NewFromString("Key00", "0"),
-		record.NewFromString("Key01", "0"),
-		record.NewFromString("Key02", "0"),
-		record.NewFromString("Key03", "0"),
-		record.NewFromString("Key04", "0"),
-	}
-
-	// Put everything in a level 0 table
-
-	skipli := skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-
-	// Flush to a level 1 run 0 sstable
-
-	sstable.MakeTable(path, dbName, 1, 0, &skipli)
-	time.Sleep(1 * time.Second)
-
-	//------------------------------------------------------------------
-	// Now do the same thing but for a new table:
-
-	data = []record.Record{
-		record.NewFromString("Key03", "++"),
-		record.NewFromString("Key04", "++"),
-		record.NewFromString("Key05", "++"),
-		record.NewFromString("Key06", "++"),
-		record.NewFromString("Key07", "++"),
-		record.NewFromString("Key08", "++"),
-	}
-	skipli = skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-	sstable.MakeTable(path, dbName, 1, 1, &skipli)
-	time.Sleep(1 * time.Second)
+	fmt.Printf("%s :: not found in the database.\n", key)
 }
 
 func main2() {
@@ -232,9 +230,9 @@ func main2() {
 
 	// Key-based find
 
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
-	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.String())
+	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.String())
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
 
 	// Change with new type
 
@@ -244,7 +242,7 @@ func main2() {
 		skiplist.Write(r4_new)
 	}
 
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
 
 	// Remove elements
 
@@ -259,7 +257,7 @@ func main2() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Data.ToString())
+			fmt.Println(n.Data.String())
 			n = n.Next[0]
 		}
 	}
@@ -271,7 +269,7 @@ func main2() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Data.ToString())
+			fmt.Println(n.Data.String())
 			n = n.Next[0]
 		}
 	}
@@ -294,9 +292,9 @@ func main2() {
 
 	// Print
 
-	fmt.Println("Rec1:", rec1.ToString())
-	fmt.Println("Rec2:", rec2.ToString())
-	fmt.Println("Rec1 Clone:", rec1_clone.ToString())
+	fmt.Println("Rec1:", rec1.String())
+	fmt.Println("Rec2:", rec2.String())
+	fmt.Println("Rec1 Clone:", rec1_clone.String())
 
 	// Check its tombstone
 
@@ -330,8 +328,8 @@ func main2() {
 		rec2_from_file.Deserialize(w) // Should equal rec2
 	}
 
-	fmt.Println("Rec1:", rec1_from_file.ToString())
-	fmt.Println("Rec2:", rec2_from_file.ToString())
+	fmt.Println("Rec1:", rec1_from_file.String())
+	fmt.Println("Rec2:", rec2_from_file.String())
 
 	//---------------------------------------------------------------------------------------------
 	// Count-Min Sketch

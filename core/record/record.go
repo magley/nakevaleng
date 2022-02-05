@@ -2,6 +2,7 @@ package record
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
@@ -37,7 +38,7 @@ func (rec Record) TotalSize() uint64 {
 	return 4 + 8 + 1 + 1 + 8 + 8 + rec.KeySize + rec.ValueSize
 }
 
-// New() creates a Record object with the key and value specified as byte slices.
+// New creates a Record object with the key and value specified as byte slices.
 //	key	::	Key for this Record
 //	val	::	Value for this Record
 func New(key, val []byte) Record {
@@ -53,7 +54,7 @@ func New(key, val []byte) Record {
 	}
 }
 
-// NewTyped() creates a Record object with the given key and value and assigns it a type.
+// NewTyped creates a Record object with the given key and value and assigns it a type.
 // Note that nakevaleng does not provide any context for the types.
 func NewTyped(key, val []byte, typeinfo uint8) Record {
 	r := New(key, val)
@@ -61,12 +62,12 @@ func NewTyped(key, val []byte, typeinfo uint8) Record {
 	return r
 }
 
-// NewFromString() is like New() but with key and val specified as strings.
+// NewFromString is like New but with key and val specified as strings.
 func NewFromString(key, val string) Record {
 	return New([]byte(key), []byte(val))
 }
 
-// Clone() creates a new Record object with fields the copied from 'rec'.
+// Clone creates a new Record object with fields the copied from 'rec'.
 // The timestamp is NOT copied!
 func Clone(rec Record) Record {
 	return Record{
@@ -81,19 +82,19 @@ func Clone(rec Record) Record {
 	}
 }
 
-// NewEmpty() creates an empty Record object.
+// NewEmpty creates an empty Record object.
 func NewEmpty() Record {
 	return New(make([]byte, 0), make([]byte, 0))
 }
 
-// IsDeleted() checks for the Tombstone bit in the record's Status field.
+// IsDeleted checks for the Tombstone bit in the record's Status field.
 func (rec Record) IsDeleted() bool {
 	return (rec.Status & RECORD_TOMBSTONE_REMOVED) != 0
 }
 
-// ToString() returns a string representation of the record suitable for reading and debugging.
+// String returns a string representation of the record suitable for reading and debugging.
 // The Status and TypeInfo fields are printed in binary.
-func (rec Record) ToString() string {
+func (rec Record) String() string {
 	return fmt.Sprintf("Record(%d %d %08b %08b %d %d %v %v)",
 		rec.Crc,
 		rec.Timestamp,
@@ -110,7 +111,7 @@ func (rec *Record) CalcCRC() {
 	rec.Crc = crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
 }
 
-// Deserialize() reads data from buffered reader and overwrites this record.
+// Deserialize reads data from buffered reader and overwrites this record.
 // The checksum is recalculated and compared with the one read from the file.
 // The function will panic if they don't match.
 // If the reader reaches an EOF, eof will be set to true.
@@ -163,14 +164,29 @@ func (rec *Record) Deserialize(reader *bufio.Reader) (eof bool) {
 
 	if crc != rec.Crc {
 		fmt.Println("Bad Record checksum (got ", crc, ", expected ", rec.Crc, ")")
-		fmt.Println(rec.ToString())
+		fmt.Println(rec.String())
 		panic("")
 	}
 
 	return false
 }
 
-// Serialize() appends the contents of the Record using a buffered writer, in binary mode.
+// ToBytes creates a binary slice of all data for the Record object.
+func (rec Record) ToBytes() []byte {
+	buffer := make([]byte, rec.TotalSize())
+	w := bytes.NewBuffer(buffer)
+	binary.Write(w, binary.LittleEndian, rec.Crc)
+	binary.Write(w, binary.LittleEndian, rec.Timestamp)
+	binary.Write(w, binary.LittleEndian, rec.Status)
+	binary.Write(w, binary.LittleEndian, rec.TypeInfo)
+	binary.Write(w, binary.LittleEndian, rec.KeySize)
+	binary.Write(w, binary.LittleEndian, rec.ValueSize)
+	binary.Write(w, binary.LittleEndian, rec.Key)
+	binary.Write(w, binary.LittleEndian, rec.Value)
+	return w.Bytes()
+}
+
+// Serialize appends the contents of the Record using a buffered writer, in binary mode.
 // The writer does not get flushed. It's up to the caller to invoke writer.Flush().
 func (rec Record) Serialize(writer *bufio.Writer) {
 	err := binary.Write(writer, binary.LittleEndian, rec.Crc)
