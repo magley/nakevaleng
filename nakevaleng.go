@@ -418,14 +418,14 @@ func main2() {
 	// Build tree.
 
 	mt := merkletree.New(nodes)
-	fmt.Println("mt root:\t", mt.Root.ToString())
+	fmt.Println("mt root:\t", mt.Root.String())
 
 	// Serialize & deserialize.
 
 	mt.Serialize("data/metadata.db")
 	mt2 := merkletree.MerkleTree{}
 	mt2.Deserialize("data/metadata.db")
-	fmt.Println("mt2 root:\t", mt2.Root.ToString())
+	fmt.Println("mt2 root:\t", mt2.Root.String())
 
 	// Check for corruption.
 

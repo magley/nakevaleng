@@ -27,8 +27,7 @@ merkletree
 		+----+----+----+----+----+----+----+----+-
 
 		where Ni is the i-th merkle node, serialized
-
-		the tree above would then look like:
+		the array above would create the following tree:
 
                      N1
                    /    \
@@ -56,14 +55,14 @@ nodes := []MerkleNode{
 // Build tree.
 
 mt := merkletree.New(nodes)
-fmt.Println("mt root:\t", mt.Root.ToString())
+fmt.Println("mt root:\t", mt.Root.String())
 
 // Serialize & deserialize.
 
 mt.Serialize("metadata.db")
 mt2 := merkletree.MerkleTree{}
 mt2.Deserialize("metadata.db")
-fmt.Println("mt2 root:\t", mt2.Root.ToString())
+fmt.Println("mt2 root:\t", mt2.Root.String())
 
 // Check for corruption.
 
