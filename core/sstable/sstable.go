@@ -1,6 +1,7 @@
 package sstable
 
 import (
+	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/merkletree"
@@ -10,14 +11,62 @@ import (
 	"os"
 )
 
+const (
+	SUMMARY_PAGE_SIZE = 3
+)
+
+// MakeTable creates a new SSTable from the data given as a skiplist.
+// You should only use this when flushing a Memtable to a level 1 SStable (minor compaction).
+// For all other cases (i.e. when major compaction happens), use MakeTableSecondaries().
 func MakeTable(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
 	makeDataTable(path, dbname, level, run, list)
-	makeIndexAndSummary(path, dbname, level, run, list)
-	makeFilter(path, dbname, level, run, list)
+	{
+		keycontexts := []record.KeyContext{}
+		for n := list.Header.Next[0]; n != nil; n = n.Next[0] {
+			keycontexts = append(keycontexts, record.KeyContext{
+				Key:     n.Data.Key,
+				RecSize: n.Data.TotalSize(),
+			})
+		}
+		makeIndexAndSummary(path, dbname, level, run, keycontexts)
+		makeFilter(path, dbname, level, run, keycontexts)
+	}
+
 	makeMetadata(path, dbname, level, run, list)
 }
 
-func makeIndexAndSummary(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
+// MakeTableSecondaries creates a new SSTable (except for the Data table) based on input parameters.
+func MakeTableSecondaries(path string, dbname string, level int, run int, merkleleaves []merkletree.MerkleNode, keyctx []record.KeyContext) {
+	makeIndexAndSummary(path, dbname, level, run, keyctx)
+	makeFilter(path, dbname, level, run, keyctx)
+	merkleTree := merkletree.New(merkleleaves)
+	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
+}
+
+func makeFilter(path string, dbname string, level int, run int, keyctx []record.KeyContext) {
+	bf := bloomfilter.New(len(keyctx), 0.01)
+	for _, kc := range keyctx {
+		bf.Insert(kc.Key)
+	}
+
+	bf.EncodeToFile(filename.Table(path, dbname, level, run, filename.TypeFilter))
+}
+
+func makeMetadata(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
+	merkleNodes := make([]merkletree.MerkleNode, 0)
+	{
+		n := list.Header.Next[0]
+		for n != nil {
+			merkleNodes = append(merkleNodes, merkletree.NewLeaf(n.Data.Value))
+			n = n.Next[0]
+		}
+	}
+
+	merkleTree := merkletree.New(merkleNodes)
+	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
+}
+
+func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx []record.KeyContext) {
 	fnameIndex := filename.Table(path, dbname, level, run, filename.TypeIndex)
 	fnameSummary := filename.Table(path, dbname, level, run, filename.TypeSummary)
 
@@ -29,9 +78,6 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 
 	offsetIndex := int64(0)   // Refers to the offset in a Data table, used in an Index table
 	offsetSummary := int64(0) // Refers to the offset in an Index table, used in a Summary table
-	k := 0                    // How ITEs have been written so far for the current STE
-	summaryBlockSize := 3     // TODO: Make this configurable
-
 	// Summary Table: write header first, and then the entires. Problem: the header depends on the
 	// entries' data. One solution is to do a 2-pass but it results in ugly code. It's actually OK
 	// to put all the entries into memory first and dump them to disk later, because Summary tables
@@ -40,42 +86,33 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 	summaryHeader := summaryTableHeader{}
 	summaryEntries := make([]summaryTableEntry, 0)
 
-	for n := list.Header.Next[0]; n != nil; {
-		record := n.Data
+	for i, kc := range keyctx {
+		// First entry holds min key.
 
-		// First node holds min key.
-
-		if n == list.Header.Next[0] {
-			summaryHeader.MinKey = record.Key
+		if i == 0 {
+			summaryHeader.MinKey = kc.Key
 		}
 
-		// Immediately write the ITE for this record.
+		// Write the ITE for this record.
 
-		ite := indexTableEntry{KeySize: record.KeySize, Offset: offsetIndex, Key: record.Key}
+		ite := indexTableEntry{KeySize: uint64(len(kc.Key)), Key: kc.Key, Offset: offsetIndex}
 		ite.Write(wIndex)
-		offsetIndex += int64(record.TotalSize())
+		offsetIndex += int64(kc.RecSize)
 
-		// Move to next node and update counter (this is why n can't be updated in the loop decl.)
+		// Create an STE if we've written k ITE's OR this is the last entry in the slice.
 
-		n = n.Next[0]
-		k += 1
-
-		// For every block of summaryBlockSize-many ITEs, create one STE.
-
-		if k%(summaryBlockSize-1) == 0 || n == nil {
+		if (i != 0 && i%(SUMMARY_PAGE_SIZE) == 0) || i == len(keyctx)-1 {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 
 			offsetSummary += ite.CalcSize()
 			summaryHeader.Payload += uint64(ste.CalcSize())
-
-			k = 0
 		}
 
-		// Last node holds max key.
+		// Last entry holds max key.
 
-		if n == nil {
-			summaryHeader.MaxKey = record.Key
+		if i == len(keyctx)-1 {
+			summaryHeader.MaxKey = kc.Key
 		}
 	}
 
@@ -92,40 +129,4 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, list *s
 	fSummary.Close()
 	wIndex.Flush()
 	fIndex.Close()
-}
-
-func makeFilter(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
-	elemNo := 0 // TODO: Keep the count inside the skiplist? It doesn't affect performance anyway.
-	{
-		n := list.Header.Next[0]
-		for n != nil {
-			elemNo += 1
-			n = n.Next[0]
-		}
-	}
-
-	bf := bloomfilter.New(elemNo, 0.01)
-	{
-		n := list.Header.Next[0]
-		for n != nil {
-			bf.Insert(n.Data.Key)
-			n = n.Next[0]
-		}
-	}
-
-	bf.EncodeToFile(filename.Table(path, dbname, level, run, filename.TypeFilter))
-}
-
-func makeMetadata(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
-	merkleNodes := make([]merkletree.MerkleNode, 0)
-	{
-		n := list.Header.Next[0]
-		for n != nil {
-			merkleNodes = append(merkleNodes, merkletree.MerkleNode{Data: n.Data.Value})
-			n = n.Next[0]
-		}
-	}
-
-	merkleTree := merkletree.New(merkleNodes)
-	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
 }

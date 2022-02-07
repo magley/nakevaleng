@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 
+	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
@@ -14,137 +16,132 @@ import (
 	"nakevaleng/util/filename"
 )
 
+const (
+	path   = "data/"
+	dbName = "nakevaleng"
+)
+
 func main() {
-	const (
-		dataDir = "data/"
-		dbName  = "nakevaleng"
-	)
+	test()
 
-	//------------------------------------------------------------------
-	// Our data
+	//////////////////////////////////////////////////////////////////////
 
-	data := []record.Record{
-		record.NewFromString("Key00", "in table 0"),
-		record.NewFromString("Key01", "in table 0"),
-		record.NewFromString("Key02", "in table 0"),
-		record.NewFromString("Key03", "in table 0"),
-		record.NewFromString("Key04", "in table 0"),
-	}
-
-	// Put everything in a level 0 table
-
-	skipli := skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-
-	// Flush to a level 1 run 0 sstable
-
-	sstable.MakeTable(dataDir, dbName, 1, 0, &skipli)
-
-	//------------------------------------------------------------------
-	// Now do the same thing but for a new table:
-
-	data = []record.Record{
-		record.NewFromString("Key03", "in table 1"),
-		record.NewFromString("Key04", "in table 1"),
-		record.NewFromString("Key05", "in table 1"),
-		record.NewFromString("Key06", "in table 1"),
-		record.NewFromString("Key07", "in table 1"),
-	}
-	skipli = skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-	sstable.MakeTable(dataDir, dbName, 1, 1, &skipli)
-
-	//------------------------------------------------------------------
-	// Now do one on level 2 (normally higher levels store older data, but this is just an example)
-
-	data = []record.Record{
-		record.NewFromString("Key10", "in old table"),
-		record.NewFromString("Key11", "in old table"),
-		record.NewFromString("Key12", "in old table"),
-		record.NewFromString("Key13", "in old table"),
-		record.NewFromString("Key14", "in old table"),
-	}
-	skipli = skiplist.New(4)
-	for _, d := range data {
-		skipli.Write(d)
-	}
-	sstable.MakeTable(dataDir, dbName, 2, 0, &skipli)
-
-	//------------------------------------------------------------------
-	// Searching
-
-	keysToQuery := [...]string{
-		"Key05", // level 1, run 1
-		"Key04", // level 1, run 1
-		"Key01", // level 1, run 0
-		"Key11", // level 2, run 0
-		"Key22", // not found
+	keysToQuery := []string{
+		"Key00",
+		"Key02",
+		"Key04",
+		"Key01",
+		"Key08",
+		"Key22",
 	}
 
 	for _, key := range keysToQuery {
-		greatestLevel := filename.GetLastLevel(dataDir, dbName)
+		search(key)
+	}
+}
 
-		for j := 1; j <= greatestLevel; j++ {
-			greatestRun := filename.GetLastRun(dataDir, dbName, j)
+func test() {
+	// Data
 
-			for i := greatestRun; i >= 0; i-- {
-				// Filter
+	recs := []record.Record{
+		record.NewFromString("Key00", "0"),
+		record.NewFromString("Key01", "0"),
+		record.NewFromString("Key02", "0"),
+		record.NewFromString("Key03", "0"),
+		record.NewFromString("Key04", "0"),
+		record.NewFromString("Key05", "0"),
+		record.NewFromString("Key06", "0"),
+		record.NewFromString("Key07", "0"),
+	}
+	time.Sleep(1 * time.Second)
+	recs = append(recs, []record.Record{
+		record.NewFromString("Key04", "++"),
+		record.NewFromString("Key05", "++"),
+		record.NewFromString("Key06", "++"),
+		record.NewFromString("Key07", "++"),
+		record.NewFromString("Key08", "++"),
+		record.NewFromString("Key09", "++"),
+	}...)
+	rmvd := record.NewFromString("Key00", "<-removed")
+	rmvd.Status |= record.RECORD_TOMBSTONE_REMOVED
+	recs = append(recs, rmvd)
 
-				q := bloomfilter.
-					DecodeFromFile(filename.Table(dataDir, dbName, j, i, filename.TypeFilter)).
-					Query([]byte(key))
+	// Put
 
-				if !q {
-					//fmt.Printf("[FILTER ] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
+	mtcap := 4
+	skipli := skiplist.New(4)
 
-				// Summary
+	for i, rec := range recs {
+		skipli.Write(rec)
+		if skipli.Count == mtcap || i == len(recs)-1 {
+			nextRun := filename.GetLastRun(path, dbName, 1) + 1
+			sstable.MakeTable(path, dbName, 1, nextRun, &skipli)
+			skipli.Clear()
+			lsmtree.Compact(path, dbName, 1)
+		}
+	}
+}
 
-				ste := sstable.FindSummaryTableEntry(
-					filename.Table(dataDir, dbName, j, i, filename.TypeSummary),
-					[]byte(key),
-				)
+func search(key string) {
+	greatestLevel := filename.GetLastLevel(path, dbName)
 
-				if ste.Offset == -1 {
-					//fmt.Printf("[SUMMARY] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
+	for j := 1; j <= greatestLevel; j++ {
+		greatestRun := filename.GetLastRun(path, dbName, j)
 
-				// Index
+		for i := greatestRun; i >= 0; i-- {
+			// Filter
 
-				ite := sstable.FindIndexTableEntry(
-					filename.Table(dataDir, dbName, j, i, filename.TypeIndex),
-					[]byte(key),
-					ste.Offset,
-				)
+			q := bloomfilter.
+				DecodeFromFile(filename.Table(path, dbName, j, i, filename.TypeFilter)).
+				Query([]byte(key))
 
-				if ite.Offset == -1 {
-					//fmt.Printf("[ INDEX ] %s not found in L%dR%d\n", key, j, i)
-					continue
-				}
+			if !q {
+				//fmt.Printf("%s Not found @ [FILTER] @ L%d R%d\n", key, j, i)
+				continue
+			}
 
-				// Data
+			// Summary
 
-				{
-					f, _ := os.Open(filename.Table(dataDir, dbName, j, i, filename.TypeData))
-					defer f.Close()
-					r := bufio.NewReader(f)
+			ste := sstable.FindSummaryTableEntry(
+				filename.Table(path, dbName, j, i, filename.TypeSummary),
+				[]byte(key),
+			)
 
-					f.Seek(ite.Offset, 0)
-					rec := record.Record{}
-					rec.Deserialize(r)
-					fmt.Println(rec.ToString())
-					goto found
-				}
+			if ste.Offset == -1 {
+				//fmt.Printf("%s Not found @ [SUMMARY] @ L%d R%d\n", key, j, i)
+				continue
+			}
+
+			// Index
+
+			ite := sstable.FindIndexTableEntry(
+				filename.Table(path, dbName, j, i, filename.TypeIndex),
+				[]byte(key),
+				ste.Offset,
+			)
+
+			if ite.Offset == -1 {
+				//fmt.Printf("%s Not found @ [INDEX] @ L%d R%d\n", key, j, i)
+				continue
+			}
+
+			// Data
+
+			{
+				f, _ := os.Open(filename.Table(path, dbName, j, i, filename.TypeData))
+				defer f.Close()
+				r := bufio.NewReader(f)
+
+				f.Seek(ite.Offset, 0)
+				rec := record.Record{}
+				rec.Deserialize(r)
+				fmt.Printf("%s :: %s\n", key, rec.String())
+				return
 			}
 		}
-	found:
 	}
+
+	fmt.Printf("%s :: not found in the database.\n", key)
 }
 
 func main2() {
@@ -205,8 +202,6 @@ func main2() {
 	dbname, logno, _, ftype := filename.Query(fnamelog3)
 	fmt.Println(dbname == "nakevaleng", logno == logNo3, ftype == filename.TypeLog)
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Skiplist
 
@@ -235,9 +230,9 @@ func main2() {
 
 	// Key-based find
 
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.ToString())
-	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.ToString())
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
+	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.String())
+	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.String())
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
 
 	// Change with new type
 
@@ -247,7 +242,7 @@ func main2() {
 		skiplist.Write(r4_new)
 	}
 
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.ToString())
+	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
 
 	// Remove elements
 
@@ -262,7 +257,7 @@ func main2() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Data.ToString())
+			fmt.Println(n.Data.String())
 			n = n.Next[0]
 		}
 	}
@@ -274,12 +269,10 @@ func main2() {
 	{
 		n := skiplist.Header.Next[0]
 		for n != nil {
-			fmt.Println(n.Data.ToString())
+			fmt.Println(n.Data.String())
 			n = n.Next[0]
 		}
 	}
-
-	fmt.Println("\n=================================================\n")
 
 	//---------------------------------------------------------------------------------------------
 	// Record
@@ -299,9 +292,9 @@ func main2() {
 
 	// Print
 
-	fmt.Println("Rec1:", rec1.ToString())
-	fmt.Println("Rec2:", rec2.ToString())
-	fmt.Println("Rec1 Clone:", rec1_clone.ToString())
+	fmt.Println("Rec1:", rec1.String())
+	fmt.Println("Rec2:", rec2.String())
+	fmt.Println("Rec1 Clone:", rec1_clone.String())
 
 	// Check its tombstone
 
@@ -335,10 +328,8 @@ func main2() {
 		rec2_from_file.Deserialize(w) // Should equal rec2
 	}
 
-	fmt.Println("Rec1:", rec1_from_file.ToString())
-	fmt.Println("Rec2:", rec2_from_file.ToString())
-
-	fmt.Println("\n=================================================\n")
+	fmt.Println("Rec1:", rec1_from_file.String())
+	fmt.Println("Rec2:", rec2_from_file.String())
 
 	//---------------------------------------------------------------------------------------------
 	// Count-Min Sketch
@@ -376,8 +367,6 @@ func main2() {
 	fmt.Println(cms2.Query([]byte("yellow")))
 	fmt.Println(cms2.Query([]byte("orange")))
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Bloom Filter.
 
@@ -410,8 +399,6 @@ func main2() {
 	bf2 := bloomfilter.DecodeFromFile("data/filter.db")
 	fmt.Println(bf2.Query([]byte("KEY04")))
 
-	fmt.Println("\n=================================================\n")
-
 	//---------------------------------------------------------------------------------------------
 	// Merkle Tree.
 
@@ -431,19 +418,17 @@ func main2() {
 	// Build tree.
 
 	mt := merkletree.New(nodes)
-	fmt.Println("mt root:\t", mt.Root.ToString())
+	fmt.Println("mt root:\t", mt.Root.String())
 
 	// Serialize & deserialize.
 
 	mt.Serialize("data/metadata.db")
 	mt2 := merkletree.MerkleTree{}
 	mt2.Deserialize("data/metadata.db")
-	fmt.Println("mt2 root:\t", mt2.Root.ToString())
+	fmt.Println("mt2 root:\t", mt2.Root.String())
 
 	// Check for corruption.
 
 	fmt.Println("mt is valid:\t", mt.Validate())
 	fmt.Println("mt2 is valid:\t", mt2.Validate())
-
-	fmt.Println("\n=================================================\n")
 }

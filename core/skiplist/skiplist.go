@@ -11,6 +11,7 @@ type Skiplist struct {
 	Level    int
 	LevelMax int
 	Header   *SkiplistNode
+	Count    int // Number of elements, incuding "removed" ones
 }
 
 // New creates an empty Skiplist with height 'level'.
@@ -35,6 +36,7 @@ func New(level int) Skiplist {
 		Level:    level,
 		LevelMax: lvlMax,
 		Header:   &header,
+		Count:    0,
 	}
 }
 
@@ -43,6 +45,7 @@ func (skiplist *Skiplist) Clear() {
 	skiplist.Level = 1
 	emptyHeader := newNodeEmpty(skiplist.LevelMax)
 	skiplist.Header = &emptyHeader
+	skiplist.Count = 0
 }
 
 // Write() writes a node with the given Record object into the skiplist. If the same key exists, the
@@ -102,6 +105,8 @@ func (skiplist *Skiplist) Write(rec record.Record) {
 		insertedNode.Next[lvl] = update[lvl].Next[lvl]
 		update[lvl].Next[lvl] = &insertedNode
 	}
+
+	skiplist.Count += 1
 }
 
 // Remove() marks a node of given key as 'removed'. If the node doesn't exist, nothing happens. Note
@@ -112,6 +117,7 @@ func (skiplist *Skiplist) Remove(key []byte) {
 	nodeToRemove := skiplist.Find(key, true)
 	if nodeToRemove != nil {
 		nodeToRemove.Data.Status |= record.RECORD_TOMBSTONE_REMOVED
+
 	}
 }
 

@@ -11,35 +11,29 @@ const (
 	MERKLE_NODE_EMPTY = 1
 )
 
-// Struture for a Merkle tree node.
-//
+// Structure for a Merkle tree node.
 type MerkleNode struct {
 	Data  []byte
 	Left  *MerkleNode
 	Right *MerkleNode
 }
 
-// Get hexadecimal representation of the node's data.
-//
-func (node *MerkleNode) ToString() string {
+// String returns hexadecimal representation of the node's data.
+func (node *MerkleNode) String() string {
 	return hex.EncodeToString(node.Data[:])
 }
 
-// Append data to the specified file, with a file writer already open.
-//
-// Will not flush if flush is set to false.
-//
-// Format:
-//
-//  +-------+------+
-//  | FLAGS | DATA |
-//  +-------+------+
-//
-//	FLAGS
-//		empty :: whether the node is empty
-//	DATA
-//		data, if FLAGS is set to empty, nothing is written
-//
+// NewLeaf creates a MerkleNode as a leaf with contents hashed from 'data'.
+func NewLeaf(data []byte) MerkleNode {
+	h := sha1.Sum(data)
+	return MerkleNode{
+		Data:  h[:],
+		Left:  nil,
+		Right: nil,
+	}
+}
+
+// Serialize appends node data to the specified file.
 func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 	// Flags
 
@@ -59,7 +53,7 @@ func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 	}
 
 	if (flags & MERKLE_NODE_EMPTY) == MERKLE_NODE_EMPTY {
-
+		// Do nothing.
 	} else {
 		_, err := writer.Write(node.Data)
 		if err != nil {
@@ -68,10 +62,8 @@ func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 	}
 }
 
-// Read data from file reader into this node's Data field.
-//
+// Deserialize reads data from file reader into this node's Data field.
 // Child references are not overwritten!
-//
 func (this *MerkleNode) Deserialize(reader *bufio.Reader) bool {
 	flags_buf := make([]byte, 1)
 	_, err := io.ReadFull(reader, flags_buf)
@@ -103,8 +95,7 @@ func (this *MerkleNode) Deserialize(reader *bufio.Reader) bool {
 	return false
 }
 
-// Recursively recalculates the hash data for this node.
-//
+// rehash recalculates the hash data for this node (and all its child nodes).
 func (this *MerkleNode) rehash() []byte {
 	if this.Left == nil && this.Right == nil {
 		return this.Data

@@ -1,7 +1,7 @@
 ```
 bloomfilter
 	- bloom filter
-	- compact data (all bits are used)
+	- dense data (all bits are used)
 	- data is hashed using murmur3
 	- supports serialization (using gob encoding)
 ```

@@ -19,9 +19,6 @@ record
       When a Record is created by nakevaleng, its TypeInfo field is 0 which represents "no type" or
       "any type" (akin to void* in C). The engine itself does not manipulate this field, except when
       calling New*() and Clone().  
-
-       
-
 ```
 
 ```go
