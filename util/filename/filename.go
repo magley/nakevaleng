@@ -201,7 +201,7 @@ func GetLastLog(relativepath string, dbname string) int {
 	// Since 'files' is sorted, we get the last non-dir entry.
 
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[len(files)-1]
+		file := files[i]
 		if file.IsDir() {
 			continue
 		} else {
@@ -251,7 +251,7 @@ func table(dbname string, level, run int, filetype FileType) string {
 		panic("Run must be a non-negative integer!")
 	}
 
-	return fmt.Sprintf("%s-%d-%d-%s.%s", dbname, level, run, filetype, extensionDb)
+	return fmt.Sprintf("%s-%06d-%06d-%s.%s", dbname, level, run, filetype, extensionDb)
 }
 
 // log creates a valid WAL filename from the provided parameters.
@@ -262,5 +262,5 @@ func log(dbname string, logno int) string {
 		panic("Level must be a positive integer!")
 	}
 
-	return fmt.Sprintf("%s-%d.%s", dbname, logno, extensionLog)
+	return fmt.Sprintf("%s-%06d.%s", dbname, logno, extensionLog)
 }
