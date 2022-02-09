@@ -40,7 +40,7 @@ func New(level int) Skiplist {
 	}
 }
 
-// Clear() removes all nodes from the Skiplist and resets the number of levels to 1.
+// Clear removes all nodes from the Skiplist and resets the number of levels to 1.
 func (skiplist *Skiplist) Clear() {
 	skiplist.Level = 1
 	emptyHeader := newNodeEmpty(skiplist.LevelMax)
@@ -48,10 +48,9 @@ func (skiplist *Skiplist) Clear() {
 	skiplist.Count = 0
 }
 
-// Write() writes a node with the given Record object into the skiplist. If the same key exists, the
-// data inside the node is updated.
-//	rec		Record object to store inside the node.
-func (skiplist *Skiplist) Write(rec record.Record) {
+// Write writes the given record into the skiplist. If an element with the same key already exists,
+// it gets updated and false is returned. Otherwise, the element is inserted and true is returned.
+func (skiplist *Skiplist) Write(rec record.Record) bool {
 	node := skiplist.Header
 	update := make([]*SkiplistNode, skiplist.LevelMax) // A ptr to a level-i node that'll get relinked.
 
@@ -69,8 +68,8 @@ func (skiplist *Skiplist) Write(rec record.Record) {
 	// Node with given key already exists.
 
 	if !(node == nil || bytes.Compare(rec.Key, node.Data.Key) != 0) {
-		node.Data = record.Clone(rec)
-		return
+		node.Data = rec
+		return false
 	}
 
 	// Determine how many levels the new node will have.
@@ -107,17 +106,16 @@ func (skiplist *Skiplist) Write(rec record.Record) {
 	}
 
 	skiplist.Count += 1
+	return true
 }
 
-// Remove() marks a node of given key as 'removed'. If the node doesn't exist, nothing happens. Note
+// Remove marks a node of given key as 'removed'. If the node doesn't exist, nothing happens. Note
 // that by "mark as removed" is meant that the Record stored inside the node is modified by marking
 // its tombstone. skiplist change only effects the status of the Record instance inside the Skiplist.
-// 	key		Key to mark as removed.
 func (skiplist *Skiplist) Remove(key []byte) {
 	nodeToRemove := skiplist.Find(key, true)
 	if nodeToRemove != nil {
 		nodeToRemove.Data.Status |= record.RECORD_TOMBSTONE_REMOVED
-
 	}
 }
 
