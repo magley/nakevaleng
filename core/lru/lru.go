@@ -35,7 +35,7 @@ func New(capacity int) LRU {
 
 // Get retrieves the record stored in the LRU based on the passed key.
 //  key        String representation of the record's key
-//  returns    Record with the matching key
+//  returns    Record with the matching key (empty record if no matching key is found) and a success flag
 func (lru *LRU) Get(key string) (record.Record, bool) {
 	el, exists := lru.data[key]
 	if !exists {
