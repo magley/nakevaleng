@@ -6,93 +6,175 @@ import (
 	"os"
 	"time"
 
+	"nakevaleng/core/lru"
 	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
 	"nakevaleng/ds/bloomfilter"
-	"nakevaleng/ds/cmsketch"
-	"nakevaleng/ds/merkletree"
+	"nakevaleng/ds/tokenbucket"
 	"nakevaleng/util/filename"
 )
 
 const (
 	path   = "data/"
-	dbName = "nakevaleng"
+	dbname = "nakevaleng"
+
+	SKIPLIST_LEVEL       = 3
+	SKIPLIST_LEVEL_MAX   = 5
+	MEMTABLE_CAPACTIY    = 10
+	CACHE_CAPACITY       = 5
+	LSM_LVL_MAX          = 4
+	LSM_RUN_MAX          = 4
+	TOKENBUCKET_TOKENS   = 50
+	TOKENBUCKET_INTERVAL = 1
 )
 
 func main() {
-	test()
+	cache := lru.New(CACHE_CAPACITY)
+	skipli := skiplist.New(SKIPLIST_LEVEL, SKIPLIST_LEVEL_MAX)
+	tb := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 
-	//////////////////////////////////////////////////////////////////////
+	insert02(cache, &skipli, tb)
 
-	keysToQuery := []string{
-		"Key00",
-		"Key02",
-		"Key04",
-		"Key01",
-		"Key08",
-		"Key22",
+	// Search
+
+	keysToSearch := []string{
+		"key_000",
+		"key_002",
+		"key_008",
+		"key_910",
+		"key_045",
+		"key_087",
+		"key_012",
+		"key_003",
+		"key_013",
+		"key_023",
+		"key_033",
+		"key_043",
+		"key_053",
+		"key_063",
+		"key_073",
+		"key_083",
+		"key_093",
+		"key_014",
+		"key_024",
+		"key_034",
+		"key_834",
 	}
-
-	for _, key := range keysToQuery {
-		search(key)
-	}
-}
-
-func test() {
-	// Data
-
-	recs := []record.Record{
-		record.NewFromString("Key00", "0"),
-		record.NewFromString("Key01", "0"),
-		record.NewFromString("Key02", "0"),
-		record.NewFromString("Key03", "0"),
-		record.NewFromString("Key04", "0"),
-		record.NewFromString("Key05", "0"),
-		record.NewFromString("Key06", "0"),
-		record.NewFromString("Key07", "0"),
-	}
-	time.Sleep(1 * time.Second)
-	recs = append(recs, []record.Record{
-		record.NewFromString("Key04", "++"),
-		record.NewFromString("Key05", "++"),
-		record.NewFromString("Key06", "++"),
-		record.NewFromString("Key07", "++"),
-		record.NewFromString("Key08", "++"),
-		record.NewFromString("Key09", "++"),
-	}...)
-	rmvd := record.NewFromString("Key00", "<-removed")
-	rmvd.Status |= record.RECORD_TOMBSTONE_REMOVED
-	recs = append(recs, rmvd)
-
-	// Put
-
-	mtcap := 4
-	skipli := skiplist.New(4)
-
-	for i, rec := range recs {
-		skipli.Write(rec)
-		if skipli.Count == mtcap || i == len(recs)-1 {
-			nextRun := filename.GetLastRun(path, dbName, 1) + 1
-			sstable.MakeTable(path, dbName, 1, nextRun, &skipli)
-			skipli.Clear()
-			lsmtree.Compact(path, dbName, 1)
+	for _, key := range keysToSearch {
+		r, found := search(key, cache, &skipli, tb)
+		if found {
+			fmt.Printf("%s\n", r.String())
+		} else {
+			fmt.Printf("%s not found\n", key)
 		}
 	}
 }
 
-func search(key string) {
-	greatestLevel := filename.GetLastLevel(path, dbName)
+// insert01: All keys are different.
+func insert01(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+	dataToInsert := []record.Record{}
+	for i := 0; i < 100; i++ {
+		dataToInsert = append(dataToInsert, record.NewFromString(
+			fmt.Sprintf("key_%03d", i),
+			fmt.Sprintf("val_%03d", i),
+		))
+	}
+	insert(dataToInsert, cache, skipli, tb)
+}
+
+// insert02: Odd keys are added only once, even keys are added multiple times.
+func insert02(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+	sleepForOneSecondAfterHowManyRecords := 20
+	dataToInsert := []record.Record{}
+
+	for i := 0; i < 100; i++ {
+		if i%2 == 0 {
+			dataToInsert = append(dataToInsert, record.NewFromString(
+				fmt.Sprintf("key_%03d", i),
+				fmt.Sprintf("val_e_%03d", i),
+			))
+		} else {
+			dataToInsert = append(dataToInsert, record.NewFromString(
+				fmt.Sprintf("key_%03d", i%20),
+				fmt.Sprintf("val_o_%03d", int(i/20)),
+			))
+		}
+
+		if i != 0 && i%sleepForOneSecondAfterHowManyRecords == 0 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+
+	insert(dataToInsert, cache, skipli, tb)
+}
+
+// Don't call this from main(), use insertXX().
+func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+	for _, rec := range dataToInsert {
+		for true {
+			if tb.HasEnoughTokens() {
+				break
+			} else {
+				fmt.Println("Slow down!")
+				time.Sleep(1 * time.Second)
+			}
+		}
+		cache.Set(rec)
+		skipli.Write(rec)
+
+		if skipli.Count > MEMTABLE_CAPACTIY {
+			newRun := filename.GetLastRun(path, dbname, 1) + 1
+			sstable.MakeTable(path, dbname, 1, newRun, skipli)
+			skipli.Clear()
+			lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+		}
+	}
+}
+
+// This searches for one single key.
+func search(key string, cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) (record.Record, bool) {
+	for true {
+		if tb.HasEnoughTokens() {
+			break
+		} else {
+			fmt.Println("Slow down!")
+			time.Sleep(1 * time.Second)
+		}
+	}
+
+	// Memtable, sort of
+
+	n := skipli.Find([]byte(key), true)
+	if n != nil {
+		nRec := n.Data
+		cache.Set(nRec)
+		fmt.Println("[found in skiplist]")
+		return nRec, true
+	}
+
+	// Cache
+
+	r, foundInCache := cache.Get(key)
+	if foundInCache {
+		cache.Set(r)
+		fmt.Println("[cache hit]")
+		return r, true
+	}
+
+	// Disk
+
+	greatestLevel := filename.GetLastLevel(path, dbname)
 
 	for j := 1; j <= greatestLevel; j++ {
-		greatestRun := filename.GetLastRun(path, dbName, j)
+		greatestRun := filename.GetLastRun(path, dbname, j)
 
 		for i := greatestRun; i >= 0; i-- {
 			// Filter
 
 			q := bloomfilter.
-				DecodeFromFile(filename.Table(path, dbName, j, i, filename.TypeFilter)).
+				DecodeFromFile(filename.Table(path, dbname, j, i, filename.TypeFilter)).
 				Query([]byte(key))
 
 			if !q {
@@ -103,7 +185,7 @@ func search(key string) {
 			// Summary
 
 			ste := sstable.FindSummaryTableEntry(
-				filename.Table(path, dbName, j, i, filename.TypeSummary),
+				filename.Table(path, dbname, j, i, filename.TypeSummary),
 				[]byte(key),
 			)
 
@@ -115,7 +197,7 @@ func search(key string) {
 			// Index
 
 			ite := sstable.FindIndexTableEntry(
-				filename.Table(path, dbName, j, i, filename.TypeIndex),
+				filename.Table(path, dbname, j, i, filename.TypeIndex),
 				[]byte(key),
 				ste.Offset,
 			)
@@ -127,308 +209,18 @@ func search(key string) {
 
 			// Data
 
-			{
-				f, _ := os.Open(filename.Table(path, dbName, j, i, filename.TypeData))
-				defer f.Close()
-				r := bufio.NewReader(f)
+			f, _ := os.Open(filename.Table(path, dbname, j, i, filename.TypeData))
+			defer f.Close()
+			r := bufio.NewReader(f)
 
-				f.Seek(ite.Offset, 0)
-				rec := record.Record{}
-				rec.Deserialize(r)
-				fmt.Printf("%s :: %s\n", key, rec.String())
-				return
-			}
+			f.Seek(ite.Offset, 0)
+			rec := record.Record{}
+			rec.Deserialize(r)
+
+			cache.Set(rec)
+			return rec, true
 		}
 	}
 
-	fmt.Printf("%s :: not found in the database.\n", key)
-}
-
-func main2() {
-	//---------------------------------------------------------------------------------------------
-	// Filename
-
-	// Create table filename from params
-
-	fname1 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeData)
-	fname2 := filename.Table("data/", "nakevaleng", 1, 0, filename.TypeFilter)
-	fname3 := filename.Table("data/", "nakevaleng", 1, 1, filename.TypeSummary)
-	fmt.Println(fname1)
-	fmt.Println(fname2)
-	fmt.Println(fname3)
-	os.Create(fname1)
-	os.Create(fname2)
-	os.Create(fname3)
-
-	// Create next run on level 1
-
-	nextRun := filename.GetLastRun("data/", "nakevaleng", 1) + 1
-	nextFnm := filename.Table("data/", "nakevaleng", 1, nextRun, filename.TypeData)
-	fmt.Println(nextFnm)
-	os.Create(nextFnm)
-
-	// Create next level (level 2)
-
-	nextLvl := filename.GetLastLevel("data/", "nakevaleng") + 1
-	nextRun2 := filename.GetLastRun("data/", "nakevaleng", nextLvl) + 1
-
-	nextFnm2 := filename.Table("data/", "nakevaleng", nextLvl, nextRun2, filename.TypeData)
-	fmt.Println(nextFnm2)
-	os.Create(nextFnm2)
-
-	// Querying
-
-	dbname, lvl, rn, ftype := filename.Query(nextFnm2)
-	fmt.Println(dbname == "nakevaleng", lvl == nextLvl, rn == nextRun2, ftype == filename.TypeData)
-
-	// Create log filename from params
-
-	fnamelog1 := filename.Log("data/log/", "nakevaleng", 0)
-	fnamelog2 := filename.Log("data/log/", "nakevaleng", 1)
-	fmt.Println(fnamelog1)
-	fmt.Println(fnamelog2)
-	os.Create(fnamelog1)
-	os.Create(fnamelog2)
-
-	// Create next log filename
-
-	logNo3 := filename.GetLastLog("data/log/", "nakevaleng") + 1
-	fnamelog3 := filename.Log("data/log/", "nakevaleng", logNo3)
-	fmt.Println(fnamelog3)
-	os.Create(fnamelog3)
-
-	// Querying
-
-	dbname, logno, _, ftype := filename.Query(fnamelog3)
-	fmt.Println(dbname == "nakevaleng", logno == logNo3, ftype == filename.TypeLog)
-
-	//---------------------------------------------------------------------------------------------
-	// Skiplist
-
-	// Create new
-
-	skiplist := skiplist.New(3)
-
-	{
-		// Some data
-
-		r1 := record.NewFromString("Key01", "Val01")
-		r2 := record.NewFromString("Key02", "Val05")
-		r3 := record.NewFromString("Key03", "Val02")
-		r4 := record.NewFromString("Key04", "Val04")
-
-		r1.TypeInfo = 1 // e.g. TypeInfo 1 == CountMinSketch
-		r2.TypeInfo = 2 // e.g. TypeInfo 2 == HyperLogLog
-
-		// Insert into skiplist
-
-		skiplist.Write(r1)
-		skiplist.Write(r3)
-		skiplist.Write(r4)
-		skiplist.Write(r2)
-	}
-
-	// Key-based find
-
-	fmt.Println("Find Key01...", skiplist.Find([]byte("Key01"), true).Data.String())
-	fmt.Println("Find Key02...", skiplist.Find([]byte("Key02"), true).Data.String())
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
-
-	// Change with new type
-
-	{
-		r4_new := skiplist.Find([]byte("Key04"), true).Data
-		r4_new.TypeInfo = 3
-		skiplist.Write(r4_new)
-	}
-
-	fmt.Println("Find Key04...", skiplist.Find([]byte("Key04"), true).Data.String())
-
-	// Remove elements
-
-	skiplist.Remove([]byte("Key05"))
-	skiplist.Remove([]byte("Key07")) // Shouldn't do anything since Key07 was not in our skiplist.
-	fmt.Println("Find Key05 (removed)...", skiplist.Find([]byte("Key05"), true))
-	fmt.Println("Find Key07 (noexist)...", skiplist.Find([]byte("Key05"), true))
-
-	// Iterate through all nodes
-
-	fmt.Println("All the nodes:")
-	{
-		n := skiplist.Header.Next[0]
-		for n != nil {
-			fmt.Println(n.Data.String())
-			n = n.Next[0]
-		}
-	}
-
-	// Clear the list
-
-	skiplist.Clear()
-	fmt.Println("All the nodes after clearing the list:")
-	{
-		n := skiplist.Header.Next[0]
-		for n != nil {
-			fmt.Println(n.Data.String())
-			n = n.Next[0]
-		}
-	}
-
-	//---------------------------------------------------------------------------------------------
-	// Record
-
-	// Create new
-
-	rec1 := record.NewFromString("Key01", "Val01")
-	rec2 := record.NewFromString("Key02", "Val02")
-
-	// Change type
-
-	rec1.TypeInfo = 5 // Meaningless without context
-
-	// Clone
-
-	rec1_clone := record.Clone(rec1)
-
-	// Print
-
-	fmt.Println("Rec1:", rec1.String())
-	fmt.Println("Rec2:", rec2.String())
-	fmt.Println("Rec1 Clone:", rec1_clone.String())
-
-	// Check its tombstone
-
-	fmt.Println("Is it deleted:", rec1.IsDeleted()) // Should be false
-
-	// Append to file
-
-	os.Remove("data/record.bin")
-
-	{
-		f, _ := os.OpenFile("data/record.bin", os.O_APPEND, 0666)
-		defer f.Close()
-		w := bufio.NewWriter(f)
-		defer w.Flush()
-
-		rec1.Serialize(w)
-		rec2.Serialize(w)
-	}
-
-	// Read from file
-
-	rec1_from_file := record.NewEmpty()
-	rec2_from_file := record.NewEmpty()
-
-	{
-		f, _ := os.OpenFile("data/record.bin", os.O_RDONLY, 0666)
-		defer f.Close()
-		w := bufio.NewReader(f)
-
-		rec1_from_file.Deserialize(w) // Should equal rec1
-		rec2_from_file.Deserialize(w) // Should equal rec2
-	}
-
-	fmt.Println("Rec1:", rec1_from_file.String())
-	fmt.Println("Rec2:", rec2_from_file.String())
-
-	//---------------------------------------------------------------------------------------------
-	// Count-Min Sketch
-
-	// Create new count-min sketch
-
-	cms := cmsketch.New(0.1, 0.1)
-
-	// Insert
-
-	cms.Insert([]byte("blue"))
-	cms.Insert([]byte("blue"))
-	cms.Insert([]byte("red"))
-	cms.Insert([]byte("green"))
-	cms.Insert([]byte("blue"))
-
-	// Query
-
-	fmt.Println("Querying a CMS built in memory, should be: 3, 1, 1, 0, 0")
-	fmt.Println(cms.Query([]byte("blue")))
-	fmt.Println(cms.Query([]byte("red")))
-	fmt.Println(cms.Query([]byte("green")))
-	fmt.Println(cms.Query([]byte("yellow")))
-	fmt.Println(cms.Query([]byte("orange")))
-
-	// Serialize
-
-	cms.EncodeToFile("data/cms.bin")
-	cms2 := cmsketch.DecodeFromFile("data/cms.bin")
-
-	fmt.Println("Querying a CMS built from disk, should be: 3, 1, 1, 0, 0")
-	fmt.Println(cms2.Query([]byte("blue")))
-	fmt.Println(cms2.Query([]byte("red")))
-	fmt.Println(cms2.Query([]byte("green")))
-	fmt.Println(cms2.Query([]byte("yellow")))
-	fmt.Println(cms2.Query([]byte("orange")))
-
-	//---------------------------------------------------------------------------------------------
-	// Bloom Filter.
-
-	// Create bloom filter.
-
-	bf := bloomfilter.New(10, 0.2)
-
-	// Insert elements.
-
-	bf.Insert([]byte("KEY00"))
-	bf.Insert([]byte("KEY01"))
-	bf.Insert([]byte("KEY02"))
-	bf.Insert([]byte("KEY03"))
-	bf.Insert([]byte("KEY05"))
-
-	// Query elements (true, false).
-
-	fmt.Println(bf.Query([]byte("KEY00")))
-	fmt.Println(bf.Query([]byte("KEY04")))
-
-	// Insert and query again (true).
-
-	bf.Insert([]byte("KEY04"))
-	fmt.Println(bf.Query([]byte("KEY04")))
-
-	// Serialize & deserialize (true)
-
-	bf.EncodeToFile("data/filter.db")
-
-	bf2 := bloomfilter.DecodeFromFile("data/filter.db")
-	fmt.Println(bf2.Query([]byte("KEY04")))
-
-	//---------------------------------------------------------------------------------------------
-	// Merkle Tree.
-
-	// Nodes.
-
-	nodes := []merkletree.MerkleNode{
-		{Data: []byte("1")},
-		{Data: []byte("2")},
-		{Data: []byte("3")},
-		{Data: []byte("4")},
-		{Data: []byte("5")},
-		{Data: []byte("6")},
-		{Data: []byte("7")},
-		//{Data: []byte("8")},
-	}
-
-	// Build tree.
-
-	mt := merkletree.New(nodes)
-	fmt.Println("mt root:\t", mt.Root.String())
-
-	// Serialize & deserialize.
-
-	mt.Serialize("data/metadata.db")
-	mt2 := merkletree.MerkleTree{}
-	mt2.Deserialize("data/metadata.db")
-	fmt.Println("mt2 root:\t", mt2.Root.String())
-
-	// Check for corruption.
-
-	fmt.Println("mt is valid:\t", mt.Validate())
-	fmt.Println("mt2 is valid:\t", mt2.Validate())
+	return record.NewEmpty(), false
 }
