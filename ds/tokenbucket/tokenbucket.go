@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// TODO: Make Timestamp and ResetInterval configurable
+// TODO: Make MaxTokens and ResetInterval configurable
 type TokenBucket struct {
 	MaxTokens     int
 	Tokens        int
