@@ -22,13 +22,13 @@ type LRU struct {
 //  capacity    Maximum size of the LRU
 //  returns     Pointer to an LRU object
 // Throws if the passed capacity is not a positive number.
-func New(capacity int) LRU {
+func New(capacity int) *LRU {
 	if capacity <= 0 {
 		fmt.Println("ERROR: capacity must be a positive number, but ", capacity, " was given.")
 		panic(nil)
 	}
 
-	return LRU{
+	return &LRU{
 		Capacity: capacity,
 		Order:    list.List{},
 		Data:     map[string]*list.Element{},
