@@ -11,25 +11,27 @@ type Cache interface {
 	Set(rec record.Record)
 }
 
+// TODO: Make Capacity configurable
 type LRU struct {
-	capacity int
-	order    list.List
-	data     map[string]*list.Element
+	Capacity int
+	Order    list.List
+	Data     map[string]*list.Element
 }
 
-// New creates an LRU of the given capacity.
+// New creates a pointer to an LRU object.
 //  capacity    Maximum size of the LRU
+//  returns     Pointer to an LRU object
 // Throws if the passed capacity is not a positive number.
 func New(capacity int) LRU {
 	if capacity <= 0 {
-		fmt.Println("ERROR: Capacity must be a positive number, but ", capacity, " was given.")
+		fmt.Println("ERROR: capacity must be a positive number, but ", capacity, " was given.")
 		panic(nil)
 	}
 
 	return LRU{
-		capacity: capacity,
-		order:    list.List{},
-		data:     map[string]*list.Element{},
+		Capacity: capacity,
+		Order:    list.List{},
+		Data:     map[string]*list.Element{},
 	}
 }
 
@@ -37,12 +39,12 @@ func New(capacity int) LRU {
 //  key        String representation of the record's key
 //  returns    Record with the matching key (empty record if no matching key is found) and a success flag
 func (lru *LRU) Get(key string) (record.Record, bool) {
-	el, exists := lru.data[key]
+	el, exists := lru.Data[key]
 	if !exists {
 		return record.Record{}, false
 	}
 
-	lru.order.MoveToFront(el)
+	lru.Order.MoveToFront(el)
 
 	return el.Value.(record.Record), true
 }
@@ -53,19 +55,19 @@ func (lru *LRU) Get(key string) (record.Record, bool) {
 func (lru *LRU) Set(rec record.Record) {
 	key := string(rec.Key)
 
-	if el, exists := lru.data[key]; exists {
+	if el, exists := lru.Data[key]; exists {
 		el.Value = rec
-		lru.order.MoveToFront(el)
+		lru.Order.MoveToFront(el)
 		return
 	}
 
-	if lru.order.Len() == lru.capacity {
-		back := lru.order.Back()
-		lru.order.Remove(back)
+	if lru.Order.Len() == lru.Capacity {
+		back := lru.Order.Back()
+		lru.Order.Remove(back)
 		backKey := string(back.Value.(record.Record).Key)
-		delete(lru.data, backKey)
+		delete(lru.Data, backKey)
 	}
 
-	newElement := lru.order.PushFront(rec)
-	lru.data[key] = newElement
+	newElement := lru.Order.PushFront(rec)
+	lru.Data[key] = newElement
 }
