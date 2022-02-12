@@ -3,19 +3,12 @@ package lsmtree
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"nakevaleng/core/record"
 	"nakevaleng/core/sstable"
 	"nakevaleng/ds/merkletree"
 	"nakevaleng/util/filename"
 	"os"
 	"sort"
-)
-
-const (
-	// TODO: Make this configurable
-	LVL_MAX = 4 // How many levels can the LSM tree have
-	RUN_MAX = 3 // How many runs can a level have
 )
 
 // A recordHandlePair stores a record with minimal info regarding the file where the record is in.
@@ -27,7 +20,7 @@ type recordHandlePair struct {
 // needsCompaction checks if the given level in the LSM tree is ready for compaction. A compaction
 // should happen whenever the current amount of runs on a single level exceeds the maximum runs on
 // a level configured for the database.
-func needsCompaction(path, dbname string, level int) bool {
+func needsCompaction(path, dbname string, level int, RUN_MAX int) bool {
 	return filename.GetLastRun(path, dbname, level) >= RUN_MAX-1
 }
 
@@ -38,8 +31,8 @@ func needsCompaction(path, dbname string, level int) bool {
 // The result of a compaction is a new SSTable in the first available run on the next level.
 // Chaining is performed in case the next level requires a compation after a new SSTable is created.
 // Only the Data table is created from the existing set, everything else is recreated.
-func Compact(path, dbname string, level int) {
-	if !needsCompaction(path, dbname, level) {
+func Compact(path, dbname string, level int, LVL_MAX, RUN_MAX int) {
+	if !needsCompaction(path, dbname, level, RUN_MAX) {
 		return
 	}
 	if level >= LVL_MAX {
@@ -92,16 +85,19 @@ func Compact(path, dbname string, level int) {
 
 	// Debug output
 
-	s := "Merged :: "
-	for _, fn := range filenames {
-		s += fn + ", "
-	}
-	s += "into :: " + outDataFname
-	fmt.Println(s)
+	/*
+		s := fmt.Sprintf("Merged level %d (", level)
+		for _, fn := range filenames {
+			_, _, r, _ := filename.Query(fn)
+			s += fmt.Sprintf("%d, ", r)
+		}
+		s += ") to " + outDataFname
+		fmt.Println(s)
+	*/
 
 	// Chaining (won't do anything if next level doesn't need compaction yet).
 
-	Compact(path, dbname, level+1)
+	Compact(path, dbname, level+1, LVL_MAX, RUN_MAX)
 }
 
 // merge performs a k-way merge for the tables on a given level.
