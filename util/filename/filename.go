@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"github.com/facette/natsort"
 )
 
 // Possible extensions for filenames created by nakevaleng, without leading period.
@@ -120,27 +122,31 @@ func GetLastLevel(relativepath, dbname string) int {
 
 	level := -1
 
+	filesStr := []string{}
+	for _, f := range files {
+		filesStr = append(filesStr, f.Name())
+	}
+	natsort.Sort(filesStr)
+
 	// Since 'files' is sorted, we get the last non-dir entry.
 
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[i]
-		if file.IsDir() {
+		file := filesStr[i]
+
+		dbgot, thisLevel, _, filetype := Query(file)
+
+		if !filetype.IsSSTable() {
 			continue
-		} else {
-			dbgot, thisLevel, _, filetype := Query(file.Name())
-
-			if !filetype.IsSSTable() {
-				continue
-			}
-
-			if dbgot != dbname {
-				panic("GetLastLevelAndRun() :: Bad database names (not matching)!")
-			}
-
-			if thisLevel > level {
-				level = thisLevel
-			}
 		}
+
+		if dbgot != dbname {
+			panic("GetLastLevelAndRun() :: Bad database names (not matching)!")
+		}
+
+		if thisLevel > level {
+			level = thisLevel
+		}
+
 	}
 
 	return level
@@ -161,28 +167,32 @@ func GetLastRun(relativepath, dbname string, level int) int {
 
 	run := -1
 
+	filesStr := []string{}
+	for _, f := range files {
+		filesStr = append(filesStr, f.Name())
+	}
+	natsort.Sort(filesStr)
+
+	// Since 'files' is sorted, we get the last non-dir entry.
+
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[i]
-		if file.IsDir() {
+		file := filesStr[i]
+		dbgot, thislevel, thisRun, filetype := Query(file)
+
+		if !filetype.IsSSTable() {
 			continue
-		} else {
-			dbgot, thislevel, thisRun, filetype := Query(file.Name())
+		}
 
-			if !filetype.IsSSTable() {
-				continue
-			}
+		if thislevel != level {
+			continue
+		}
 
-			if thislevel != level {
-				continue
-			}
+		if dbgot != dbname {
+			panic("GetRun() :: Bad database names (not matching)!")
+		}
 
-			if dbgot != dbname {
-				panic("GetRun() :: Bad database names (not matching)!")
-			}
-
-			if thisRun > run {
-				run = thisRun
-			}
+		if thisRun > run {
+			run = thisRun
 		}
 	}
 
@@ -198,29 +208,31 @@ func GetLastLog(relativepath string, dbname string) int {
 
 	logno := -1
 
+	filesStr := []string{}
+	for _, f := range files {
+		filesStr = append(filesStr, f.Name())
+	}
+	natsort.Sort(filesStr)
+
 	// Since 'files' is sorted, we get the last non-dir entry.
 
 	for i := len(files) - 1; i >= 0; i-- {
-		file := files[i]
-		if file.IsDir() {
+		file := filesStr[i]
+
+		dbgot := ""
+		filetype := TypeLog
+		dbgot, myLogNo, _, filetype := Query(file)
+
+		if filetype != TypeLog {
 			continue
-		} else {
-			dbgot := ""
-			filetype := TypeLog
-			dbgot, myLogNo, _, filetype := Query(file.Name())
+		}
 
-			if filetype != TypeLog {
-				continue
-			}
+		if dbgot != dbname {
+			panic("GetLastLog() :: Bad database names (not matching)!")
+		}
 
-			if dbgot != dbname {
-				panic("GetLastLog() :: Bad database names (not matching)!")
-			}
-
-			if myLogNo > logno {
-				logno = myLogNo
-			}
-
+		if myLogNo > logno {
+			logno = myLogNo
 		}
 	}
 
@@ -251,7 +263,7 @@ func table(dbname string, level, run int, filetype FileType) string {
 		panic("Run must be a non-negative integer!")
 	}
 
-	return fmt.Sprintf("%s-%06d-%06d-%s.%s", dbname, level, run, filetype, extensionDb)
+	return fmt.Sprintf("%s-%d-%d-%s.%s", dbname, level, run, filetype, extensionDb)
 }
 
 // log creates a valid WAL filename from the provided parameters.
@@ -262,5 +274,5 @@ func log(dbname string, logno int) string {
 		panic("Level must be a positive integer!")
 	}
 
-	return fmt.Sprintf("%s-%06d.%s", dbname, logno, extensionLog)
+	return fmt.Sprintf("%s-%d.%s", dbname, logno, extensionLog)
 }
