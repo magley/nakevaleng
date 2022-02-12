@@ -173,7 +173,7 @@ func (rec *Record) Deserialize(reader *bufio.Reader) (eof bool) {
 
 // ToBytes creates a binary slice of all data for the Record object.
 func (rec Record) ToBytes() []byte {
-	buffer := make([]byte, rec.TotalSize())
+	buffer := make([]byte, 0, rec.TotalSize())
 	w := bytes.NewBuffer(buffer)
 	binary.Write(w, binary.LittleEndian, rec.Crc)
 	binary.Write(w, binary.LittleEndian, rec.Timestamp)
