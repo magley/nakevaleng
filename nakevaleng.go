@@ -139,6 +139,8 @@ func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skipl
 			lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
 		}
 	}
+
+	wal.FlushBuffer()
 }
 
 // This searches for one single key.

@@ -256,7 +256,7 @@ func GetSegmentPaths(relativepath string, dbname string) []string {
 	natsort.Sort(filesStr)
 
 	segmentPaths := make([]string, 0)
-	for i := len(files) - 1; i >= 0; i-- {
+	for i := 0; i < len(files); i++ {
 		file := filesStr[i]
 
 		dbgot := ""
