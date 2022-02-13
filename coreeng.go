@@ -122,7 +122,7 @@ func (cen *CoreEngine) get(key []byte) []byte {
 
 			q := bloomfilter.
 				DecodeFromFile(filename.Table(path, dbname, j, i, filename.TypeFilter)).
-				Query([]byte(key))
+				Query(key)
 
 			if !q {
 				//fmt.Printf("%s Not found @ [FILTER] @ L%d R%d\n", key, j, i)
@@ -199,7 +199,13 @@ func (cen *CoreEngine) Put(user, key, val []byte) bool {
 			time.Sleep(1 * time.Second)
 		}
 	}
+	cen.put(key, val)
+	return true
+}
+
+func (cen *CoreEngine) put(key, val []byte) {
 	rec := record.New(key, val)
+	cen.wal.Append(rec)
 	cen.cache.Set(rec)
 	cen.sl.Write(rec)
 
@@ -209,7 +215,6 @@ func (cen *CoreEngine) Put(user, key, val []byte) bool {
 		cen.sl.Clear()
 		lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
 	}
-	return true
 }
 
 func (cen *CoreEngine) Delete(user, key []byte) bool {
@@ -223,6 +228,9 @@ func main() {
 }
 
 func test(engine *CoreEngine) {
+	// create TOKEN BUCKET FOR "USER"
+	tbu := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
+	engine.put([]byte(INTERNAL_START+"USER"), tbu.ToBytes())
 
 	// Search
 	sleepForOneSecondAfterHowManyRecords := 20000
@@ -236,7 +244,7 @@ func test(engine *CoreEngine) {
 		} else {
 			engine.Put([]byte("USER"),
 				[]byte(fmt.Sprintf("key_%03d", i%20)),
-				[]byte(fmt.Sprintf("val_o_%03d", int(i/20))),
+				[]byte(fmt.Sprintf("val_o_%03d", i/20)),
 			)
 		}
 
@@ -269,7 +277,7 @@ func test(engine *CoreEngine) {
 		"key_834",
 	}
 	for _, key := range keysToSearch {
-		v := engine.Get([]byte{1}, []byte(key))
+		v := engine.Get([]byte("USER"), []byte(key))
 		if v != nil {
 			fmt.Printf("%s found: ", key)
 			fmt.Println(string(v))

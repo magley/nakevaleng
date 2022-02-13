@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 )
@@ -44,6 +45,9 @@ func (ite *indexTableEntry) Read(reader *bufio.Reader) (eof bool) {
 		return true
 	}
 
+	// todo remove two below
+	fmt.Println(string(ite.Key))
+	fmt.Println(ite)
 	ite.Key = make([]byte, ite.KeySize)
 	err = binary.Read(reader, binary.LittleEndian, &ite.Key)
 	if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -71,6 +75,8 @@ func FindIndexTableEntry(indexTableFname string, key []byte, startoffset int64) 
 
 	f.Seek(startoffset, 0)
 	ite := indexTableEntry{}
+	// todo remove below
+	fmt.Println(indexTableFname, " ", string(key), " ", startoffset)
 
 	for {
 		if ite.Read(r) {
