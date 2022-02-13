@@ -7,4 +7,4 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0
 )
 
-require golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+require github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb // indirect
