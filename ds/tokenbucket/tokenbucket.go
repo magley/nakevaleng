@@ -20,12 +20,12 @@ type TokenBucket struct {
 // Throws if the maxTokens and/or resetInterval parameters are not positive numbers.
 func New(maxTokens int, resetInterval int64) *TokenBucket {
 	if maxTokens <= 0 {
-		fmt.Println("ERROR: maxTokens must be a positive number, but ", maxTokens, " was given.")
-		panic(nil)
+		errMsg := fmt.Sprint("maxTokens must be a positive number, but ", maxTokens, " was given.")
+		panic(errMsg)
 	}
 	if resetInterval <= 0 {
-		fmt.Println("ERROR: resetInterval must be a positive number, but ", resetInterval, " was given.")
-		panic(nil)
+		errMsg := fmt.Sprint("resetInterval must be a positive number, but ", resetInterval, " was given.")
+		panic(errMsg)
 	}
 
 	return &TokenBucket{
