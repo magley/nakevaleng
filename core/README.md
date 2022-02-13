@@ -6,4 +6,5 @@ nakevaleng core files
 - sstable
 - lsmtree
 - lru
+- wal
 ```

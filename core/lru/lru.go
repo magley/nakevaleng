@@ -6,11 +6,6 @@ import (
 	"nakevaleng/core/record"
 )
 
-type Cache interface {
-	Get(key string) (record.Record, bool)
-	Set(rec record.Record)
-}
-
 // TODO: Make Capacity configurable
 type LRU struct {
 	Capacity int
@@ -24,8 +19,8 @@ type LRU struct {
 // Throws if the passed capacity is not a positive number.
 func New(capacity int) *LRU {
 	if capacity <= 0 {
-		fmt.Println("ERROR: capacity must be a positive number, but ", capacity, " was given.")
-		panic(nil)
+		errMsg := fmt.Sprint("capacity must be a positive number, but ", capacity, " was given.")
+		panic(errMsg)
 	}
 
 	return &LRU{
