@@ -157,9 +157,11 @@ func FindSummaryTableEntry(summaryTableFname string, key []byte) summaryTableEnt
 	}
 
 	r = bufio.NewReader(bytes.NewBuffer(buf))
+	var goodSte summaryTableEntry
 	ste := summaryTableEntry{}
 
 	for {
+		goodSte = ste
 		if ste.Read(r) {
 			ste.Offset = -1
 			break
@@ -172,5 +174,5 @@ func FindSummaryTableEntry(summaryTableFname string, key []byte) summaryTableEnt
 		}
 	}
 
-	return ste
+	return goodSte
 }

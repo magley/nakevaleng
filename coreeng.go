@@ -134,6 +134,8 @@ func (cen *CoreEngine) get(key []byte) []byte {
 				key,
 			)
 
+			//fmt.Println("AA", ste.Offset, key, j, i)
+
 			if ste.Offset == -1 {
 				//fmt.Printf("%s Not found @ [SUMMARY] @ L%d R%d\n", key, j, i)
 				continue
@@ -146,6 +148,8 @@ func (cen *CoreEngine) get(key []byte) []byte {
 				key,
 				ste.Offset,
 			)
+
+			//fmt.Println("BB", ite.Offset, key)
 
 			if ite.Offset == -1 {
 				//fmt.Printf("%s Not found @ [INDEX] @ L%d R%d\n", key, j, i)
