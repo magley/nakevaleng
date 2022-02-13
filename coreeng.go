@@ -55,10 +55,14 @@ func New() *CoreEngine {
 // CheckLegality returns true if legal key, otherwise false
 func (cen *CoreEngine) CheckLegality(key []byte) bool {
 	start := []byte(INTERNAL_START)
+	count := 0
 	for i, c := range start {
 		if key[i] == c {
-			return false
+			count += 1
 		}
+	}
+	if count == len(start) {
+		return false
 	}
 	return true
 }
@@ -221,7 +225,7 @@ func main() {
 func test(engine *CoreEngine) {
 
 	// Search
-	sleepForOneSecondAfterHowManyRecords := 20
+	sleepForOneSecondAfterHowManyRecords := 20000
 
 	for i := 0; i < 100; i++ {
 		if i%2 == 0 {
