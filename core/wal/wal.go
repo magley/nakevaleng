@@ -3,6 +3,7 @@ package wal
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"nakevaleng/core/record"
 	"nakevaleng/util/filename"
 	"os"
@@ -10,41 +11,53 @@ import (
 	"github.com/edsrzf/mmap-go"
 )
 
-// TODO: Make these configurable
-const (
-	appendingBufferCapacity = 5
-	maxRecordsInSegment     = 5
-	lowWaterMarkIndex       = 1 // Must be at least 1. Note that the first segment's index is 0
-)
-
 type WAL struct {
-	segmentFilenames        []string
-	lastSegmentFilename     string
+	walPath string
+	dbname  string
+
+	segmentPaths            []string
+	lastSegmentPath         string
 	lastSegmentNumOfRecords int
+	maxRecordsInSegment     int
+	lowWaterMarkIndex       int
+
+	appendingBufferCapacity int
 	appendingBuffer         []record.Record
 }
 
-func New() *WAL {
-	segmentFilenames := filename.GetSegmentFilenames("data/log/", "nakevaleng")
-	if len(segmentFilenames) == 0 {
-		lastSegmentFilename := filename.Log("data/log/", "nakevaleng", 0)
+// Returns a pointer to a WAL object.
+// If no segments are present in the directory, it will create one.
+func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) *WAL {
+	segmentPaths := filename.GetSegmentPaths(walPath, dbname)
+	if len(segmentPaths) == 0 {
+		lastSegmentPath := filename.Log(walPath, dbname, 0)
 
-		_, err := os.Create(lastSegmentFilename)
+		_, err := os.Create(lastSegmentPath)
 		if err != nil {
 			panic(err)
 		}
 
-		segmentFilenames = append(segmentFilenames, lastSegmentFilename)
+		segmentPaths = append(segmentPaths, lastSegmentPath)
 	}
 
-	lastSegmentFilename := segmentFilenames[len(segmentFilenames)-1]
-	lastSegmentNumOfRecords := calculateNumOfRecordsInSegment(lastSegmentFilename)
+	lastSegmentPath := segmentPaths[len(segmentPaths)-1]
+	lastSegmentNumOfRecords := calculateNumOfRecordsInSegment(lastSegmentPath)
 
-	buffer := make([]record.Record, 0, appendingBufferCapacity)
+	appendingBuffer := make([]record.Record, 0, appendingBufferCapacity)
 
-	return &WAL{segmentFilenames, lastSegmentFilename, lastSegmentNumOfRecords, buffer}
+	return &WAL{
+		walPath:                 walPath,
+		dbname:                  dbname,
+		segmentPaths:            segmentPaths,
+		lastSegmentPath:         lastSegmentPath,
+		lastSegmentNumOfRecords: lastSegmentNumOfRecords,
+		maxRecordsInSegment:     maxRecordsInSegment,
+		lowWaterMarkIndex:       lowWaterMarkIndex,
+		appendingBufferCapacity: appendingBufferCapacity,
+		appendingBuffer:         appendingBuffer}
 }
 
+// Helper function that returns the current number of records present in the segment.
 func calculateNumOfRecordsInSegment(filename string) int {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -62,12 +75,14 @@ func calculateNumOfRecordsInSegment(filename string) int {
 	return numOfRecords
 }
 
+// Appends a single record into the last segment. If the last segment is full,
+// Append will add a new segment and append the record into the new segment.
 func (wal *WAL) Append(rec record.Record) {
-	if wal.lastSegmentNumOfRecords == maxRecordsInSegment {
+	if wal.lastSegmentNumOfRecords == wal.maxRecordsInSegment {
 		wal.addSegment() // Append is now operating on the new last segment
 	}
 
-	file, err := os.OpenFile(wal.lastSegmentFilename, os.O_RDWR, 0666)
+	file, err := os.OpenFile(wal.lastSegmentPath, os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -96,49 +111,58 @@ func (wal *WAL) Append(rec record.Record) {
 	wal.lastSegmentNumOfRecords++
 }
 
+// Appends a record into the buffer stored within the WAL.
+// When the buffer is full, it will be flushed.
 func (wal *WAL) BufferedAppend(rec record.Record) {
 	wal.appendingBuffer = append(wal.appendingBuffer, rec)
-	if len(wal.appendingBuffer) == cap(wal.appendingBuffer) {
+	if len(wal.appendingBuffer) == wal.appendingBufferCapacity {
 		wal.FlushBuffer()
 	}
 }
 
+// Appends the buffer's records into the WAL's segments.
+// Depending on the size of the buffer and the fullness of the last segment,
+// FlushBuffer can cause the creation of new segments.
 func (wal *WAL) FlushBuffer() {
 	for len(wal.appendingBuffer) != 0 {
-		if wal.lastSegmentNumOfRecords == maxRecordsInSegment {
+		if wal.lastSegmentNumOfRecords == wal.maxRecordsInSegment {
 			wal.addSegment() // Append is now operating on the new last segment
 		}
 
-		numOfRecsToFlush := maxRecordsInSegment - wal.lastSegmentNumOfRecords
-		if numOfRecsToFlush > len(wal.appendingBuffer) {
-			numOfRecsToFlush = len(wal.appendingBuffer)
+		numOfRecsToAppend := wal.maxRecordsInSegment - wal.lastSegmentNumOfRecords
+		if numOfRecsToAppend > len(wal.appendingBuffer) {
+			numOfRecsToAppend = len(wal.appendingBuffer)
 		}
 
-		partialBuffer := wal.appendingBuffer[:numOfRecsToFlush]
+		partialBuffer := wal.appendingBuffer[:numOfRecsToAppend]
 		wal.flushPartialBufferToSegment(partialBuffer)
 
-		wal.appendingBuffer = wal.appendingBuffer[numOfRecsToFlush:]
-		wal.lastSegmentNumOfRecords += numOfRecsToFlush
+		wal.appendingBuffer = wal.appendingBuffer[numOfRecsToAppend:]
+		wal.lastSegmentNumOfRecords += numOfRecsToAppend
 	}
 }
 
+// Utility function for adding a new segment to the WAL,
+// setting it as the last segment and setting its number of records to zero.
 func (wal *WAL) addSegment() {
-	_, logNo, _, _ := filename.Query(wal.lastSegmentFilename)
+	_, logNo, _, _ := filename.Query(wal.lastSegmentPath)
 	logNo++
 
-	newLastSegmentFilename := filename.Log("data/log/", "nakevaleng", logNo)
+	newLastSegmentPath := filename.Log(wal.walPath, wal.dbname, logNo)
 
-	_, err := os.Create(newLastSegmentFilename)
+	_, err := os.Create(newLastSegmentPath)
 	if err != nil {
 		panic(err)
 	}
 
-	wal.lastSegmentFilename = newLastSegmentFilename
+	wal.lastSegmentPath = newLastSegmentPath
 	wal.lastSegmentNumOfRecords = 0
 }
 
+// Helper function used by BufferReader to partially flush its contents to the
+// segment.
 func (wal *WAL) flushPartialBufferToSegment(partialBuffer []record.Record) {
-	file, err := os.OpenFile(wal.lastSegmentFilename, os.O_RDWR, 0666)
+	file, err := os.OpenFile(wal.lastSegmentPath, os.O_RDWR, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -172,25 +196,67 @@ func (wal *WAL) flushPartialBufferToSegment(partialBuffer []record.Record) {
 	copy(mmapf[oldSize:], bytesOfBuffer)
 }
 
+// Returns a slice of all the records found in the last segment.
 func (wal *WAL) ReadLastSegment() []record.Record {
-	return wal.readEntireSegment(wal.lastSegmentFilename)
+	return readEntireSegment(wal.lastSegmentPath)
 }
 
-// Do we need this? What would it even do?
-// func (wal *WAL) ReadRange(begin int, end int) {
+// Returns a slice of all the records found in the segment with the given index.
+func (wal *WAL) ReadSegmentAt(index int) []record.Record {
+	if index < 0 {
+		errMsg := fmt.Sprint("index must be greater than or equal to zero, but ", index, " was given.")
+		panic(errMsg)
+	}
+	if index > len(wal.segmentPaths)-1 {
+		errMsg := "index is out of bounds."
+		panic(errMsg)
+	}
 
-// }
+	segmentPath := wal.segmentPaths[index]
+	return readEntireSegment(segmentPath)
+}
 
+// Returns a slice of all the records found in the segments with indices
+// in the range [begin, end)
+func (wal *WAL) ReadSegmentsInRange(begin int, end int) []record.Record {
+	if begin < 0 {
+		errMsg := fmt.Sprint("begin must be greater than or equal to zero, but ", begin, " was given.")
+		panic(errMsg)
+	}
+	if end <= 0 {
+		errMsg := fmt.Sprint("end must be greater than zero, but ", end, " was given.")
+		panic(errMsg)
+	}
+	if begin >= end {
+		errMsg := "begin must be lesser than end."
+		panic(errMsg)
+	}
+	if end > len(wal.segmentPaths) {
+		errMsg := "end must be lesser than or equal to the length of the total amount of segments."
+		panic(errMsg)
+	}
+
+	recs := make([]record.Record, 0)
+	for ; begin < end; begin++ {
+		segmentPath := wal.segmentPaths[begin]
+		recs = append(recs, readEntireSegment(segmentPath)...)
+	}
+
+	return recs
+}
+
+// Returns a slice of all the records found in all of the segments.
 func (wal *WAL) ReadAllSegments() []record.Record {
 	recs := make([]record.Record, 0)
-	for _, segmentFilename := range wal.segmentFilenames {
-		recs = append(recs, wal.readEntireSegment(segmentFilename)...)
+	for _, segmentPath := range wal.segmentPaths {
+		recs = append(recs, readEntireSegment(segmentPath)...)
 	}
 	return recs
 }
 
-func (wal *WAL) readEntireSegment(segmentFilename string) []record.Record {
-	file, err := os.Open(segmentFilename)
+// Returns a slice of all the records found in the segment.
+func readEntireSegment(segmentPath string) []record.Record {
+	file, err := os.Open(segmentPath)
 	if err != nil {
 		panic(err)
 	}
@@ -226,37 +292,40 @@ func (wal *WAL) readEntireSegment(segmentFilename string) []record.Record {
 	return recs
 }
 
+// Removes the old segments from the filesystem and renames the remaining ones
+// so they reflect the new state.
 func (wal *WAL) DeleteOldSegments() {
-	if len(wal.segmentFilenames)-1 <= lowWaterMarkIndex {
+	if len(wal.segmentPaths)-1 <= wal.lowWaterMarkIndex {
 		return
 	}
 
-	segmentsForDeletion := wal.segmentFilenames[:lowWaterMarkIndex]
-	for _, segmentFilename := range segmentsForDeletion {
-		err := os.Remove(segmentFilename)
+	segmentsForDeletion := wal.segmentPaths[:wal.lowWaterMarkIndex]
+	for _, segmentPath := range segmentsForDeletion {
+		err := os.Remove(segmentPath)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	wal.segmentFilenames = wal.segmentFilenames[lowWaterMarkIndex:]
-	for i, oldFilename := range wal.segmentFilenames {
-		newFilename := filename.Log("data/log/", "nakevaleng", i)
+	wal.segmentPaths = wal.segmentPaths[wal.lowWaterMarkIndex:]
+	for i, oldPath := range wal.segmentPaths {
+		newPath := filename.Log(wal.walPath, wal.dbname, i)
 
-		err := os.Rename(oldFilename, newFilename)
+		err := os.Rename(oldPath, newPath)
 		if err != nil {
 			panic(err)
 		}
 
-		wal.segmentFilenames[i] = newFilename
+		wal.segmentPaths[i] = newPath
 	}
 
-	wal.lastSegmentFilename = wal.segmentFilenames[len(wal.segmentFilenames)-1]
-	wal.lastSegmentNumOfRecords = calculateNumOfRecordsInSegment(wal.lastSegmentFilename)
+	wal.lastSegmentPath = wal.segmentPaths[len(wal.segmentPaths)-1]
+	wal.lastSegmentNumOfRecords = calculateNumOfRecordsInSegment(wal.lastSegmentPath)
 }
 
+// Truncates the last segment, and sets its number of records to zero.
 func (wal *WAL) ResetLastSegment() {
-	err := os.Truncate(wal.lastSegmentFilename, 0)
+	err := os.Truncate(wal.lastSegmentPath, 0)
 	if err != nil {
 		panic(err)
 	}

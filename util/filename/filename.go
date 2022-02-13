@@ -227,16 +227,16 @@ func GetLastLog(relativepath string, dbname string) int {
 	return logno
 }
 
-// GetSegmentFilenames returns a slice of all the log filenames at the specified path for the given database.
-func GetSegmentFilenames(relativepath string, dbname string) []string {
+// GetSegmentPaths returns a slice of all the log paths at the specified relative path for the given database.
+func GetSegmentPaths(relativepath string, dbname string) []string {
 	files, err := ioutil.ReadDir(relativepath)
 	if err != nil {
 		panic(err)
 	}
 
-	// Since 'files' is sorted, the output of GetSegmentFilenames will be sorted as well.
+	// Since 'files' is sorted, the output of GetSegmentPaths will be sorted as well.
 
-	segmentFilenames := make([]string, 0)
+	segmentPaths := make([]string, 0)
 	for _, file := range files {
 		if file.IsDir() {
 			continue
@@ -253,12 +253,12 @@ func GetSegmentFilenames(relativepath string, dbname string) []string {
 				panic("GetLastLog() :: Bad database names (not matching)!")
 			}
 
-			filename := Log(relativepath, dbgot, myLogNo)
-			segmentFilenames = append(segmentFilenames, filename)
+			path := Log(relativepath, dbgot, myLogNo)
+			segmentPaths = append(segmentPaths, path)
 		}
 	}
 
-	return segmentFilenames
+	return segmentPaths
 }
 
 // ToFileType tries to convert a string into a FileType object. Will panic if no string is a match.
