@@ -95,8 +95,7 @@ func (cen *CoreEngine) get(key []byte) []byte {
 	if n != nil {
 		nRec := n.Data
 		cen.cache.Set(nRec)
-		cen.wal.Append(nRec)
-		fmt.Println("[found in skiplist]")
+		//fmt.Println("[found in skiplist]")
 		return nRec.Value
 	}
 
@@ -105,8 +104,7 @@ func (cen *CoreEngine) get(key []byte) []byte {
 	r, foundInCache := cen.cache.Get(string(key))
 	if foundInCache {
 		cen.cache.Set(r)
-		cen.wal.Append(r)
-		fmt.Println("[cache hit]")
+		//fmt.Println("[cache hit]")
 		return r.Value
 	}
 
@@ -165,7 +163,6 @@ func (cen *CoreEngine) get(key []byte) []byte {
 			rec.Deserialize(r)
 
 			cen.cache.Set(rec)
-			cen.wal.Append(rec)
 			return rec.Value
 		}
 	}
@@ -173,14 +170,16 @@ func (cen *CoreEngine) get(key []byte) []byte {
 	return nil
 }
 
-func (cen *CoreEngine) getTokenBucket(user []byte) *tokenbucket.TokenBucket {
+func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	// todo CREATING A TOKEN BUCKET IS THE RESPONSIBILITY OF USER MANAGER
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	// todo convert to tb
-	//tbBytes := cen.get(tbKey)
-	//return tbBytes
-	return tokenbucket.New(10, 1)
+	tbBytes := cen.get(tbKey)
+	if tbBytes == nil {
+		panic(nil)
+	}
+	return tokenbucket.FromBytes(cen.get(tbKey))
+	//return *tokenbucket.New(10, 1)
 }
 
 func (cen *CoreEngine) Put(user, key, val []byte) bool {
@@ -205,7 +204,7 @@ func (cen *CoreEngine) Put(user, key, val []byte) bool {
 
 func (cen *CoreEngine) put(key, val []byte) {
 	rec := record.New(key, val)
-	cen.wal.Append(rec)
+	cen.wal.BufferedAppend(rec)
 	cen.cache.Set(rec)
 	cen.sl.Write(rec)
 
