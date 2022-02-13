@@ -105,9 +105,9 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 
-			offsetSummary += ite.CalcSize()
 			summaryHeader.Payload += uint64(ste.CalcSize())
 		}
+		offsetSummary += ite.CalcSize()
 
 		// Last entry holds max key.
 
