@@ -35,7 +35,7 @@ import (
 //	WAL_BUFFER_CAPACITY  = 5
 //)
 
-func main() {
+func main0() {
 	cache := lru.New(CACHE_CAPACITY)
 	skipli := skiplist.New(SKIPLIST_LEVEL, SKIPLIST_LEVEL_MAX)
 	tb := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)

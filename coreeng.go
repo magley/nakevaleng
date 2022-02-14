@@ -28,7 +28,7 @@ const (
 	CACHE_CAPACITY       = 5
 	LSM_LVL_MAX          = 4
 	LSM_RUN_MAX          = 4
-	TOKENBUCKET_TOKENS   = 50
+	TOKENBUCKET_TOKENS   = 100
 	TOKENBUCKET_INTERVAL = 1
 	WAL_MAX_RECS_IN_SEG  = 5
 	WAL_LWM_IDX          = 2
@@ -227,6 +227,8 @@ func (cen *CoreEngine) put(key, val []byte) {
 		sstable.MakeTable(path, dbname, 1, newRun, &cen.sl)
 		cen.sl.Clear()
 		lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+		// safe to delete old segments now since everything is on disk
+		cen.wal.DeleteOldSegments()
 	}
 }
 
@@ -241,26 +243,27 @@ func main() {
 }
 
 func test(engine *CoreEngine) {
-	// Search
-	sleepForOneSecondAfterHowManyRecords := 20000
+	user := "USER"
+	tbu := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
+	engine.put([]byte(INTERNAL_START+user), tbu.ToBytes())
 
-	for i := 0; i < 100; i++ {
-		if i%2 == 0 {
-			engine.Put([]byte("USER"),
-				[]byte(fmt.Sprintf("key_%03d", i)),
-				[]byte(fmt.Sprintf("val_e_%03d", i)),
-			)
-		} else {
-			engine.Put([]byte("USER"),
-				[]byte(fmt.Sprintf("key_%03d", i%20)),
-				[]byte(fmt.Sprintf("val_o_%03d", i/20)),
-			)
-		}
+	// Insert
 
-		if i != 0 && i%sleepForOneSecondAfterHowManyRecords == 0 {
-			time.Sleep(1 * time.Second)
-		}
+	for i := 0; i < 200; i++ {
+		engine.Put([]byte(user),
+			[]byte(fmt.Sprintf("key_%03d", i)),
+			[]byte(fmt.Sprintf("val_FIRST_PASS_%03d", i)),
+		)
 	}
+	time.Sleep(1 * time.Second)
+	for i := 50; i < 150; i++ {
+		engine.Put([]byte(user),
+			[]byte(fmt.Sprintf("key_%03d", i)),
+			[]byte(fmt.Sprintf("val_SECOND_PASS_%03d", i)),
+		)
+	}
+
+	// Search
 
 	keysToSearch := []string{
 		"key_000",
@@ -272,21 +275,21 @@ func test(engine *CoreEngine) {
 		"key_012",
 		"key_003",
 		"key_013",
-		"key_023",
+		"key_123",
 		"key_033",
 		"key_043",
 		"key_053",
 		"key_063",
 		"key_073",
 		"key_083",
-		"key_093",
-		"key_014",
-		"key_024",
-		"key_034",
-		"key_834",
+		"key_193",
+		"key_114",
+		"key_124",
+		"key_134",
+		"key_134",
 	}
 	for _, key := range keysToSearch {
-		v := engine.Get([]byte("USER"), []byte(key))
+		v := engine.Get([]byte(user), []byte(key))
 		if v != nil {
 			fmt.Printf("%s found: ", key)
 			fmt.Println(string(v))
