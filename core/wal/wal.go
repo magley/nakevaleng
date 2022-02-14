@@ -159,7 +159,7 @@ func (wal *WAL) addSegment() {
 	wal.lastSegmentNumOfRecords = 0
 }
 
-// Helper function used by BufferReader to partially flush its contents to the
+// Helper function used by FlushBuffer to partially flush its contents to the
 // segment.
 func (wal *WAL) flushPartialBufferToSegment(partialBuffer []record.Record) {
 	file, err := os.OpenFile(wal.lastSegmentPath, os.O_RDWR, 0666)

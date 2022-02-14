@@ -19,13 +19,13 @@ type Skiplist struct {
 // Throws an error if specified height is greater than the maximium allowed height or less than 1.
 func New(level int, levelmax int) Skiplist {
 	if level > levelmax {
-		fmt.Println("Maximum skiplist height is", levelmax, ", but", level, "was given.")
-		panic(nil)
+		errMsg := fmt.Sprint("Maximum skiplist height is", levelmax, ", but", level, "was given.")
+		panic(errMsg)
 	}
 
 	if level <= 0 {
-		fmt.Println("Minimum skiplist height is 1, but", level, "was given.")
-		panic(nil)
+		errMsg := fmt.Sprint("Minimum skiplist height is 1, but", level, "was given.")
+		panic(errMsg)
 	}
 
 	header := newNodeEmpty(levelmax)

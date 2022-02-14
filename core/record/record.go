@@ -163,9 +163,8 @@ func (rec *Record) Deserialize(reader *bufio.Reader) (eof bool) {
 	crc := crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
 
 	if crc != rec.Crc {
-		fmt.Println("Bad Record checksum (got ", crc, ", expected ", rec.Crc, ")")
-		fmt.Println(rec.String())
-		panic("")
+		errMsg := fmt.Sprint("Bad Record checksum (got ", crc, ", expected ", rec.Crc, ")\n", rec.String())
+		panic(errMsg)
 	}
 
 	return false
