@@ -176,16 +176,13 @@ func (cen *CoreEngine) get(key []byte) []byte {
 }
 
 func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
-	// todo CREATING A TOKEN BUCKET IS THE RESPONSIBILITY OF USER MANAGER
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
 	tbBytes := cen.get(tbKey)
 	if tbBytes == nil {
-		// todo change later when everything else works
-		panic(nil)
+		return *tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 	}
 	return tokenbucket.FromBytes(cen.get(tbKey))
-	//return *tokenbucket.New(10, 1)
 }
 
 func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
@@ -244,10 +241,6 @@ func main() {
 }
 
 func test(engine *CoreEngine) {
-	// create TOKEN BUCKET FOR "USER"
-	tbu := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
-	engine.put([]byte(INTERNAL_START+"USER"), tbu.ToBytes())
-
 	// Search
 	sleepForOneSecondAfterHowManyRecords := 20000
 
