@@ -32,10 +32,11 @@ func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendi
 	if len(segmentPaths) == 0 {
 		lastSegmentPath := filename.Log(walPath, dbname, 0)
 
-		_, err := os.Create(lastSegmentPath)
+		file, err := os.Create(lastSegmentPath)
 		if err != nil {
 			panic(err)
 		}
+		defer file.Close()
 
 		segmentPaths = append(segmentPaths, lastSegmentPath)
 	}
@@ -150,10 +151,11 @@ func (wal *WAL) addSegment() {
 
 	newLastSegmentPath := filename.Log(wal.walPath, wal.dbname, logNo)
 
-	_, err := os.Create(newLastSegmentPath)
+	file, err := os.Create(newLastSegmentPath)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	wal.lastSegmentPath = newLastSegmentPath
 	wal.lastSegmentNumOfRecords = 0
@@ -335,10 +337,11 @@ func (wal *WAL) DeleteAllSegments() {
 	wal.segmentPaths = wal.segmentPaths[:0]
 
 	newSegmentPath := filename.Log(wal.walPath, wal.dbname, 0)
-	_, err := os.Create(newSegmentPath)
+	file, err := os.Create(newSegmentPath)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	wal.segmentPaths = append(wal.segmentPaths, newSegmentPath)
 	wal.lastSegmentPath = newSegmentPath
