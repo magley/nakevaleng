@@ -75,13 +75,9 @@ func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
 		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
-	for true {
-		if tb.HasEnoughTokens() {
-			break
-		} else {
-			fmt.Println("Slow down!")
-			time.Sleep(1 * time.Second)
-		}
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
 	}
 	cen.putTokenBucket(user, tb)
 	return cen.get(key)
@@ -96,7 +92,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 		nRec := n.Data
 		cen.cache.Set(nRec)
 		//fmt.Println("[found in skiplist]", nRec)
-		if nRec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+		if nRec.IsDeleted() {
 			return record.Record{}, false
 		}
 		return nRec, true
@@ -108,7 +104,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 	if foundInCache {
 		cen.cache.Set(r)
 		//fmt.Println("[cache hit]", r)
-		if r.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+		if r.IsDeleted() {
 			return record.Record{}, false
 		}
 		return r, true
@@ -173,7 +169,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 			f.Close()
 
 			// record is deleted, so don't return it
-			if rec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+			if rec.IsDeleted() {
 				//fmt.Println("[RESPECTING THE DEAD]", rec)
 				return record.Record{}, false
 			}
@@ -210,13 +206,9 @@ func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 		return false
 	}
 	tb := cen.getTokenBucket(user)
-	for true {
-		if tb.HasEnoughTokens() {
-			break
-		} else {
-			fmt.Println("Slow down!")
-			time.Sleep(1 * time.Second)
-		}
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
 	}
 	cen.putTokenBucket(user, tb)
 	rec := record.New(key, val)
@@ -252,13 +244,9 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 		return false
 	}
 	tb := cen.getTokenBucket(user)
-	for true {
-		if tb.HasEnoughTokens() {
-			break
-		} else {
-			fmt.Println("Slow down!")
-			time.Sleep(1 * time.Second)
-		}
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
 	}
 	cen.putTokenBucket(user, tb)
 	rec, found := cen.get(key)
@@ -267,7 +255,7 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 		return false
 	}
 	// todo remove two below
-	if rec.Status == record.RECORD_TOMBSTONE_REMOVED {
+	if rec.IsDeleted() {
 		panic(rec)
 	}
 	rec.Status |= record.RECORD_TOMBSTONE_REMOVED
