@@ -11,6 +11,7 @@ import (
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
+	writeaheadlog "nakevaleng/core/wal"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/tokenbucket"
 	"nakevaleng/util/filename"
@@ -38,8 +39,9 @@ func main() {
 	cache := lru.New(CACHE_CAPACITY)
 	skipli := skiplist.New(SKIPLIST_LEVEL, SKIPLIST_LEVEL_MAX)
 	tb := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
+	wal := writeaheadlog.New(walPath, dbname, WAL_MAX_RECS_IN_SEG, WAL_LWM_IDX, WAL_BUFFER_CAPACITY)
 
-	insert02(cache, &skipli, tb)
+	insert01(cache, &skipli, tb, wal)
 
 	// Search
 
@@ -77,7 +79,7 @@ func main() {
 }
 
 // insert01: All keys are different.
-func insert01(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+func insert01(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket, wal *writeaheadlog.WAL) {
 	dataToInsert := []record.Record{}
 	for i := 0; i < 100; i++ {
 		dataToInsert = append(dataToInsert, record.NewFromString(
@@ -85,11 +87,11 @@ func insert01(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBu
 			fmt.Sprintf("val_%03d", i),
 		))
 	}
-	insert(dataToInsert, cache, skipli, tb)
+	insert(dataToInsert, cache, skipli, tb, wal)
 }
 
 // insert02: Odd keys are added only once, even keys are added multiple times.
-func insert02(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+func insert02(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket, wal *writeaheadlog.WAL) {
 	sleepForOneSecondAfterHowManyRecords := 20
 	dataToInsert := []record.Record{}
 
@@ -111,11 +113,11 @@ func insert02(cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBu
 		}
 	}
 
-	insert(dataToInsert, cache, skipli, tb)
+	insert(dataToInsert, cache, skipli, tb, wal)
 }
 
 // Don't call this from main(), use insertXX().
-func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket) {
+func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbucket.TokenBucket, wal *writeaheadlog.WAL) {
 	for _, rec := range dataToInsert {
 		for true {
 			if tb.HasEnoughTokens() {
@@ -125,6 +127,8 @@ func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skipl
 				time.Sleep(1 * time.Second)
 			}
 		}
+
+		wal.BufferedAppend(rec)
 		cache.Set(rec)
 		skipli.Write(rec)
 
@@ -135,6 +139,8 @@ func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skipl
 			lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
 		}
 	}
+
+	wal.FlushBuffer()
 }
 
 // This searches for one single key.
