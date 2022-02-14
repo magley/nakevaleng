@@ -77,4 +77,9 @@ wal.DeleteOldSegments()
 
 wal.ResetLastSegment() // seg1 now has no records
 
+// After this operation, we will only have seg0 with zero records.
+// We use this after flushing the memtable to disk, preparing the
+// WAL for new appends.
+wal.DeleteAllSegments()
+
 ```
