@@ -157,6 +157,7 @@ func (wal *WAL) addSegment() {
 	}
 	defer file.Close()
 
+	wal.segmentPaths = append(wal.segmentPaths, newLastSegmentPath)
 	wal.lastSegmentPath = newLastSegmentPath
 	wal.lastSegmentNumOfRecords = 0
 }
