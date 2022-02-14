@@ -67,12 +67,12 @@ func (cen *CoreEngine) CheckLegality(key []byte) bool {
 	return true
 }
 
-func (cen *CoreEngine) Get(user, key []byte) []byte {
+func (cen *CoreEngine) Get(user, key []byte) record.Record {
 	legal := cen.CheckLegality(key)
 	if !legal {
 		// todo might want to handle this somewhere else
 		fmt.Println("ILLEGAL QUERY:", key)
-		return nil
+		return record.NewInvalid()
 	}
 	tb := cen.getTokenBucket(user)
 	for true {
@@ -88,7 +88,7 @@ func (cen *CoreEngine) Get(user, key []byte) []byte {
 }
 
 // Get without checking legality or getting token buckets
-func (cen *CoreEngine) get(key []byte) []byte {
+func (cen *CoreEngine) get(key []byte) record.Record {
 	// todo check wal timestamps
 	// Memtable, sort of
 
@@ -97,7 +97,7 @@ func (cen *CoreEngine) get(key []byte) []byte {
 		nRec := n.Data
 		cen.cache.Set(nRec)
 		//fmt.Println("[found in skiplist]")
-		return nRec.Value
+		return nRec
 	}
 
 	// Cache
@@ -106,7 +106,7 @@ func (cen *CoreEngine) get(key []byte) []byte {
 	if foundInCache {
 		cen.cache.Set(r)
 		//fmt.Println("[cache hit]")
-		return r.Value
+		return r
 	}
 
 	// Disk
@@ -160,38 +160,38 @@ func (cen *CoreEngine) get(key []byte) []byte {
 			// Data
 
 			f, _ := os.Open(filename.Table(path, dbname, j, i, filename.TypeData))
-			defer f.Close()
 			r := bufio.NewReader(f)
 
 			f.Seek(ite.Offset, 0)
 			rec := record.Record{}
 			rec.Deserialize(r)
+			f.Close()
 
 			cen.cache.Set(rec)
-			return rec.Value
+			return rec
 		}
 	}
 
-	return nil
+	return record.NewInvalid()
 }
 
 func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	tbBytes := cen.get(tbKey)
-	if tbBytes == nil {
+	tbRec := cen.get(tbKey)
+	if tbRec.Status == record.RECORD_STATUS_INVALID {
 		return *tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 	}
-	return tokenbucket.FromBytes(cen.get(tbKey))
+	return tokenbucket.FromBytes(cen.get(tbKey).Value)
 }
 
 func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	cen.put(tbKey, bucket.ToBytes())
+	cen.put(record.New(tbKey, bucket.ToBytes()))
 }
 
-func (cen *CoreEngine) Put(user, key, val []byte) bool {
+func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	legal := cen.CheckLegality(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
@@ -208,14 +208,15 @@ func (cen *CoreEngine) Put(user, key, val []byte) bool {
 		}
 	}
 	cen.putTokenBucket(user, tb)
-	cen.put(key, val)
+	rec := record.New(key, val)
+	rec.TypeInfo = typeInfo
+	cen.put(rec)
 	return true
 }
 
-func (cen *CoreEngine) put(key, val []byte) {
-	rec := record.New(key, val)
+func (cen *CoreEngine) put(rec record.Record) {
 	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
-	isTokenBucket := !cen.CheckLegality(key)
+	isTokenBucket := !cen.CheckLegality(rec.Key)
 	if !isTokenBucket {
 		cen.wal.BufferedAppend(rec)
 	}
@@ -244,8 +245,7 @@ func main() {
 
 func test(engine *CoreEngine) {
 	user := "USER"
-	tbu := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
-	engine.put([]byte(INTERNAL_START+user), tbu.ToBytes())
+	noType := byte(0) // doesn't matter for now, the wrapper engine should bother with it
 
 	// Insert
 
@@ -253,6 +253,7 @@ func test(engine *CoreEngine) {
 		engine.Put([]byte(user),
 			[]byte(fmt.Sprintf("key_%03d", i)),
 			[]byte(fmt.Sprintf("val_FIRST_PASS_%03d", i)),
+			noType,
 		)
 	}
 	time.Sleep(1 * time.Second)
@@ -260,6 +261,7 @@ func test(engine *CoreEngine) {
 		engine.Put([]byte(user),
 			[]byte(fmt.Sprintf("key_%03d", i)),
 			[]byte(fmt.Sprintf("val_SECOND_PASS_%03d", i)),
+			noType,
 		)
 	}
 
@@ -289,8 +291,9 @@ func test(engine *CoreEngine) {
 		"key_134",
 	}
 	for _, key := range keysToSearch {
-		v := engine.Get([]byte(user), []byte(key))
-		if v != nil {
+		rec := engine.Get([]byte(user), []byte(key))
+		v := rec.Value
+		if rec.Status != record.RECORD_STATUS_INVALID {
 			fmt.Printf("%s found: ", key)
 			fmt.Println(string(v))
 		} else {

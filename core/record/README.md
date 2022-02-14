@@ -14,7 +14,7 @@ record
 
         KeySize and ValSize are measured in bytes, for the corresponding arrays.
 
-    - Status field holds record metadata. For now, only the tombstone is used.
+    - Status field holds record metadata. For now, only the tombstone (and internally invalid status) is used.
     - TypeInfo field holds type information used by application layers that wrap around nakevaleng.
       When a Record is created by nakevaleng, its TypeInfo field is 0 which represents "no type" or
       "any type" (akin to void* in C). The engine itself does not manipulate this field, except when
