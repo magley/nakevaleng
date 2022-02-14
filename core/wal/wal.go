@@ -292,8 +292,8 @@ func readEntireSegment(segmentPath string) []record.Record {
 	return recs
 }
 
-// Removes the old segments from the filesystem and renames the remaining ones
-// so they reflect the new state.
+// Removes the old segments from the filesystem (based on the low water mark index) and renames
+// the remaining ones so they reflect the new state.
 func (wal *WAL) DeleteOldSegments() {
 	if len(wal.segmentPaths)-1 <= wal.lowWaterMarkIndex {
 		return
@@ -321,6 +321,28 @@ func (wal *WAL) DeleteOldSegments() {
 
 	wal.lastSegmentPath = wal.segmentPaths[len(wal.segmentPaths)-1]
 	wal.lastSegmentNumOfRecords = calculateNumOfRecordsInSegment(wal.lastSegmentPath)
+}
+
+// Removes all the segments from the filesystem. This should be called after flushing the memtable.
+// Note that this will leave one (emptied) segment, preparing the WAL for new appends.
+func (wal *WAL) DeleteAllSegments() {
+	for _, segmentPath := range wal.segmentPaths {
+		err := os.Remove(segmentPath)
+		if err != nil {
+			panic(err)
+		}
+	}
+	wal.segmentPaths = wal.segmentPaths[:0]
+
+	newSegmentPath := filename.Log(wal.walPath, wal.dbname, 0)
+	_, err := os.Create(newSegmentPath)
+	if err != nil {
+		panic(err)
+	}
+
+	wal.segmentPaths = append(wal.segmentPaths, newSegmentPath)
+	wal.lastSegmentPath = newSegmentPath
+	wal.lastSegmentNumOfRecords = 0
 }
 
 // Truncates the last segment, and sets its number of records to zero.

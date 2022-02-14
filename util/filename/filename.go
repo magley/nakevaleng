@@ -87,18 +87,19 @@ func Log(relativepath, dbname string, logno int) string {
 //
 //		filetype`Which data does the table hold (see the FileType enum).`
 func Query(fname string) (dbname string, level, run int, filetype FileType) {
-	main := strings.Split(fname, ".")                     // main[0] = name, main[1] = extension
-	main[0] = main[0][strings.LastIndex(main[0], "/")+1:] // trim path from file name
+	main := strings.Split(fname, ".") // main[0] = name, main[1] = extension
 
-	strings := strings.Split(main[0], "-")
-
-	if len(main) == 1 {
+	if len(main) != 2 {
 		dbname = ""
 		level = -1
 		run = -1
 		filetype = TypeBad
 		return
 	}
+
+	main[0] = main[0][strings.LastIndex(main[0], "/")+1:] // trim path from file name
+
+	strings := strings.Split(main[0], "-")
 
 	extension := main[1]
 
@@ -136,8 +137,6 @@ func GetLastLevel(relativepath, dbname string) int {
 		filesStr = append(filesStr, f.Name())
 	}
 	natsort.Sort(filesStr)
-
-	// Since 'files' is sorted, we get the last non-dir entry.
 
 	for i := len(files) - 1; i >= 0; i-- {
 		file := filesStr[i]
@@ -182,8 +181,6 @@ func GetLastRun(relativepath, dbname string, level int) int {
 	}
 	natsort.Sort(filesStr)
 
-	// Since 'files' is sorted, we get the last non-dir entry.
-
 	for i := len(files) - 1; i >= 0; i-- {
 		file := filesStr[i]
 		dbgot, thislevel, thisRun, filetype := Query(file)
@@ -223,8 +220,6 @@ func GetLastLog(relativepath string, dbname string) int {
 	}
 	natsort.Sort(filesStr)
 
-	// Since 'files' is sorted, we get the last non-dir entry.
-
 	for i := len(files) - 1; i >= 0; i-- {
 		file := filesStr[i]
 
@@ -255,28 +250,30 @@ func GetSegmentPaths(relativepath string, dbname string) []string {
 		panic(err)
 	}
 
-	// Since 'files' is sorted, the output of GetSegmentPaths will be sorted as well.
+	filesStr := []string{}
+	for _, f := range files {
+		filesStr = append(filesStr, f.Name())
+	}
+	natsort.Sort(filesStr)
 
 	segmentPaths := make([]string, 0)
-	for _, file := range files {
-		if file.IsDir() {
+	for i := 0; i < len(files); i++ {
+		file := filesStr[i]
+
+		dbgot := ""
+		filetype := TypeLog
+		dbgot, myLogNo, _, filetype := Query(file)
+
+		if filetype != TypeLog {
 			continue
-		} else {
-			dbgot := ""
-			filetype := TypeLog
-			dbgot, myLogNo, _, filetype := Query(file.Name())
-
-			if filetype != TypeLog {
-				continue
-			}
-
-			if dbgot != dbname {
-				panic("GetLastLog() :: Bad database names (not matching)!")
-			}
-
-			path := Log(relativepath, dbgot, myLogNo)
-			segmentPaths = append(segmentPaths, path)
 		}
+
+		if dbgot != dbname {
+			panic("GetLastLog() :: Bad database names (not matching)!")
+		}
+
+		path := Log(relativepath, dbgot, myLogNo)
+		segmentPaths = append(segmentPaths, path)
 	}
 
 	return segmentPaths
