@@ -36,7 +36,7 @@ func New(capacity int) *LRU {
 func (lru *LRU) Get(key string) (record.Record, bool) {
 	el, exists := lru.Data[key]
 	if !exists {
-		return record.Record{}, false
+		return record.NewInvalid(), false
 	}
 
 	lru.Order.MoveToFront(el)

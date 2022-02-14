@@ -89,14 +89,16 @@ func (cen *CoreEngine) Get(user, key []byte) record.Record {
 
 // Get without checking legality or getting token buckets
 func (cen *CoreEngine) get(key []byte) record.Record {
-	// todo check wal timestamps
 	// Memtable, sort of
 
-	n := cen.sl.Find(key, true)
+	n := cen.sl.Find(key, false)
 	if n != nil {
 		nRec := n.Data
 		cen.cache.Set(nRec)
-		//fmt.Println("[found in skiplist]")
+		//fmt.Println("[found in skiplist]", nRec)
+		if nRec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+			return record.NewInvalid()
+		}
 		return nRec
 	}
 
@@ -105,7 +107,10 @@ func (cen *CoreEngine) get(key []byte) record.Record {
 	r, foundInCache := cen.cache.Get(string(key))
 	if foundInCache {
 		cen.cache.Set(r)
-		//fmt.Println("[cache hit]")
+		//fmt.Println("[cache hit]", r)
+		if r.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+			return record.NewInvalid()
+		}
 		return r
 	}
 
@@ -166,6 +171,12 @@ func (cen *CoreEngine) get(key []byte) record.Record {
 			rec := record.Record{}
 			rec.Deserialize(r)
 			f.Close()
+
+			// record is deleted, so don't return it
+			if rec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
+				fmt.Println("RESPECTING")
+				return record.NewInvalid()
+			}
 
 			cen.cache.Set(rec)
 			return rec
@@ -234,8 +245,35 @@ func (cen *CoreEngine) put(rec record.Record) {
 }
 
 func (cen *CoreEngine) Delete(user, key []byte) bool {
-	//todo
-	return false
+	legal := cen.CheckLegality(key)
+	if !legal {
+		// todo might want to handle this somewhere else by returning err
+		fmt.Println("ILLEGAL QUERY:", key)
+		return false
+	}
+	tb := cen.getTokenBucket(user)
+	for true {
+		if tb.HasEnoughTokens() {
+			break
+		} else {
+			fmt.Println("Slow down!")
+			time.Sleep(1 * time.Second)
+		}
+	}
+	cen.putTokenBucket(user, tb)
+	rec := cen.get(key)
+	if rec.Status == record.RECORD_STATUS_INVALID {
+		fmt.Println("CAN'T DELETE. NO SUCH RECORD WITH KEY:", key)
+		return false
+	}
+	// todo remove two below
+	if rec.Status == record.RECORD_TOMBSTONE_REMOVED {
+		panic(rec)
+	}
+	rec.Status |= record.RECORD_TOMBSTONE_REMOVED
+	cen.put(rec)
+	// todo add cache removal here
+	return true
 }
 
 func main() {
@@ -264,6 +302,12 @@ func test(engine *CoreEngine) {
 			noType,
 		)
 	}
+
+	// Delete some
+
+	engine.Delete([]byte(user), []byte("key_000"))
+	engine.Delete([]byte(user), []byte("key_000"))
+	engine.Delete([]byte(user), []byte("key_114"))
 
 	// Search
 
