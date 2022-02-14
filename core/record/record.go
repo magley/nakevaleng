@@ -13,7 +13,6 @@ import (
 const (
 	RECORD_STATUS_DEFAULT    = 0 << 0
 	RECORD_TOMBSTONE_REMOVED = 1 << 0
-	RECORD_STATUS_INVALID    = 1 << 1
 )
 
 // Atomic unit of information with all required context.
@@ -86,13 +85,6 @@ func Clone(rec Record) Record {
 // NewEmpty creates an empty Record object.
 func NewEmpty() Record {
 	return New(make([]byte, 0), make([]byte, 0))
-}
-
-// NewInvalid creates an invalid Record object. Should not be kept in engine!
-func NewInvalid() Record {
-	ret := New(make([]byte, 0), make([]byte, 0))
-	ret.Status |= RECORD_STATUS_INVALID
-	return ret
 }
 
 // IsDeleted checks for the Tombstone bit in the record's Status field.

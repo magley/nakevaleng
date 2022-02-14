@@ -67,12 +67,12 @@ func (cen *CoreEngine) CheckLegality(key []byte) bool {
 	return true
 }
 
-func (cen *CoreEngine) Get(user, key []byte) record.Record {
+func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
 	legal := cen.CheckLegality(key)
 	if !legal {
 		// todo might want to handle this somewhere else
 		fmt.Println("ILLEGAL QUERY:", key)
-		return record.NewInvalid()
+		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
 	for true {
@@ -88,7 +88,7 @@ func (cen *CoreEngine) Get(user, key []byte) record.Record {
 }
 
 // Get without checking legality or getting token buckets
-func (cen *CoreEngine) get(key []byte) record.Record {
+func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 	// Memtable, sort of
 
 	n := cen.sl.Find(key, false)
@@ -97,9 +97,9 @@ func (cen *CoreEngine) get(key []byte) record.Record {
 		cen.cache.Set(nRec)
 		//fmt.Println("[found in skiplist]", nRec)
 		if nRec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
-			return record.NewInvalid()
+			return record.Record{}, false
 		}
-		return nRec
+		return nRec, true
 	}
 
 	// Cache
@@ -109,9 +109,9 @@ func (cen *CoreEngine) get(key []byte) record.Record {
 		cen.cache.Set(r)
 		//fmt.Println("[cache hit]", r)
 		if r.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
-			return record.NewInvalid()
+			return record.Record{}, false
 		}
-		return r
+		return r, true
 	}
 
 	// Disk
@@ -174,26 +174,26 @@ func (cen *CoreEngine) get(key []byte) record.Record {
 
 			// record is deleted, so don't return it
 			if rec.Status&record.RECORD_TOMBSTONE_REMOVED == record.RECORD_TOMBSTONE_REMOVED {
-				fmt.Println("RESPECTING")
-				return record.NewInvalid()
+				//fmt.Println("[RESPECTING THE DEAD]", rec)
+				return record.Record{}, false
 			}
 
 			cen.cache.Set(rec)
-			return rec
+			return rec, true
 		}
 	}
 
-	return record.NewInvalid()
+	return record.Record{}, false
 }
 
 func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	tbRec := cen.get(tbKey)
-	if tbRec.Status == record.RECORD_STATUS_INVALID {
+	tbRec, found := cen.get(tbKey)
+	if !found {
 		return *tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 	}
-	return tokenbucket.FromBytes(cen.get(tbKey).Value)
+	return tokenbucket.FromBytes(tbRec.Value)
 }
 
 func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
@@ -261,8 +261,8 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 		}
 	}
 	cen.putTokenBucket(user, tb)
-	rec := cen.get(key)
-	if rec.Status == record.RECORD_STATUS_INVALID {
+	rec, found := cen.get(key)
+	if !found {
 		fmt.Println("CAN'T DELETE. NO SUCH RECORD WITH KEY:", key)
 		return false
 	}
@@ -272,7 +272,7 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 	}
 	rec.Status |= record.RECORD_TOMBSTONE_REMOVED
 	cen.put(rec)
-	// todo add cache removal here
+	// todo maybe add cache removal here
 	return true
 }
 
@@ -335,9 +335,9 @@ func test(engine *CoreEngine) {
 		"key_134",
 	}
 	for _, key := range keysToSearch {
-		rec := engine.Get([]byte(user), []byte(key))
+		rec, found := engine.Get([]byte(user), []byte(key))
 		v := rec.Value
-		if rec.Status != record.RECORD_STATUS_INVALID {
+		if found {
 			fmt.Printf("%s found: ", key)
 			fmt.Println(string(v))
 		} else {
