@@ -32,10 +32,11 @@ func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendi
 	if len(segmentPaths) == 0 {
 		lastSegmentPath := filename.Log(walPath, dbname, 0)
 
-		_, err := os.Create(lastSegmentPath)
+		file, err := os.Create(lastSegmentPath)
 		if err != nil {
 			panic(err)
 		}
+		defer file.Close()
 
 		segmentPaths = append(segmentPaths, lastSegmentPath)
 	}
@@ -150,11 +151,13 @@ func (wal *WAL) addSegment() {
 
 	newLastSegmentPath := filename.Log(wal.walPath, wal.dbname, logNo)
 
-	_, err := os.Create(newLastSegmentPath)
+	file, err := os.Create(newLastSegmentPath)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
+	wal.segmentPaths = append(wal.segmentPaths, newLastSegmentPath)
 	wal.lastSegmentPath = newLastSegmentPath
 	wal.lastSegmentNumOfRecords = 0
 }
@@ -295,11 +298,13 @@ func readEntireSegment(segmentPath string) []record.Record {
 // Removes the old segments from the filesystem (based on the low water mark index) and renames
 // the remaining ones so they reflect the new state.
 func (wal *WAL) DeleteOldSegments() {
-	if len(wal.segmentPaths)-1 <= wal.lowWaterMarkIndex {
+	if len(wal.segmentPaths) <= wal.lowWaterMarkIndex {
 		return
 	}
 
-	segmentsForDeletion := wal.segmentPaths[:wal.lowWaterMarkIndex]
+	maxIndex := len(wal.segmentPaths) - wal.lowWaterMarkIndex
+
+	segmentsForDeletion := wal.segmentPaths[:maxIndex]
 	for _, segmentPath := range segmentsForDeletion {
 		err := os.Remove(segmentPath)
 		if err != nil {
@@ -307,7 +312,7 @@ func (wal *WAL) DeleteOldSegments() {
 		}
 	}
 
-	wal.segmentPaths = wal.segmentPaths[wal.lowWaterMarkIndex:]
+	wal.segmentPaths = wal.segmentPaths[maxIndex:]
 	for i, oldPath := range wal.segmentPaths {
 		newPath := filename.Log(wal.walPath, wal.dbname, i)
 
@@ -335,10 +340,11 @@ func (wal *WAL) DeleteAllSegments() {
 	wal.segmentPaths = wal.segmentPaths[:0]
 
 	newSegmentPath := filename.Log(wal.walPath, wal.dbname, 0)
-	_, err := os.Create(newSegmentPath)
+	file, err := os.Create(newSegmentPath)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Close()
 
 	wal.segmentPaths = append(wal.segmentPaths, newSegmentPath)
 	wal.lastSegmentPath = newSegmentPath
