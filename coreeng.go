@@ -227,6 +227,8 @@ func (cen *CoreEngine) put(key, val []byte) {
 		sstable.MakeTable(path, dbname, 1, newRun, &cen.sl)
 		cen.sl.Clear()
 		lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+		// safe to delete old segments now since everything is on disk
+		cen.wal.DeleteOldSegments()
 	}
 }
 
