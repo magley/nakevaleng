@@ -83,6 +83,7 @@ func (cen *CoreEngine) Get(user, key []byte) []byte {
 			time.Sleep(1 * time.Second)
 		}
 	}
+	cen.putTokenBucket(user, tb)
 	return cen.get(key)
 }
 
@@ -180,10 +181,17 @@ func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey = append(tbKey, user...)
 	tbBytes := cen.get(tbKey)
 	if tbBytes == nil {
+		// todo change later when everything else works
 		panic(nil)
 	}
 	return tokenbucket.FromBytes(cen.get(tbKey))
 	//return *tokenbucket.New(10, 1)
+}
+
+func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
+	tbKey := []byte(INTERNAL_START)
+	tbKey = append(tbKey, user...)
+	cen.put(tbKey, bucket.ToBytes())
 }
 
 func (cen *CoreEngine) Put(user, key, val []byte) bool {
@@ -202,13 +210,18 @@ func (cen *CoreEngine) Put(user, key, val []byte) bool {
 			time.Sleep(1 * time.Second)
 		}
 	}
+	cen.putTokenBucket(user, tb)
 	cen.put(key, val)
 	return true
 }
 
 func (cen *CoreEngine) put(key, val []byte) {
 	rec := record.New(key, val)
-	cen.wal.BufferedAppend(rec)
+	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
+	isTokenBucket := !cen.CheckLegality(key)
+	if !isTokenBucket {
+		cen.wal.BufferedAppend(rec)
+	}
 	cen.cache.Set(rec)
 	cen.sl.Write(rec)
 
