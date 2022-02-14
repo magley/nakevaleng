@@ -100,6 +100,7 @@ func Query(fname string) (dbname string, level, run int, filetype FileType) {
 	main[0] = main[0][strings.LastIndex(main[0], "/")+1:] // trim path from file name
 
 	strings := strings.Split(main[0], "-")
+
 	extension := main[1]
 
 	if extension == extensionDb {

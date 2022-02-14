@@ -1,6 +1,7 @@
 package tokenbucket
 
 import (
+	"encoding/binary"
 	"fmt"
 	"time"
 )
@@ -52,4 +53,23 @@ func (tb *TokenBucket) HasEnoughTokens() bool {
 	}
 
 	return false
+}
+
+// ToBytes is temporary function todo
+func (tb *TokenBucket) ToBytes() []byte {
+	ret := make([]byte, 32)
+	binary.LittleEndian.PutUint64(ret[0:8], uint64(tb.MaxTokens))
+	binary.LittleEndian.PutUint64(ret[8:16], uint64(tb.Tokens))
+	binary.LittleEndian.PutUint64(ret[16:24], uint64(tb.Timestamp))
+	binary.LittleEndian.PutUint64(ret[24:32], uint64(tb.ResetInterval))
+	return ret
+}
+
+func FromBytes(bytes []byte) TokenBucket {
+	return TokenBucket{
+		int(binary.LittleEndian.Uint64(bytes[0:8])),
+		int(binary.LittleEndian.Uint64(bytes[8:16])),
+		int64(binary.LittleEndian.Uint64(bytes[16:24])),
+		int64(binary.LittleEndian.Uint64(bytes[24:32])),
+	}
 }

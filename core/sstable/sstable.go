@@ -101,13 +101,13 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 
 		// Create an STE if we've written k ITE's OR this is the last entry in the slice.
 
-		if (i != 0 && i%(SUMMARY_PAGE_SIZE) == 0) || i == len(keyctx)-1 {
+		if (i != 0 && i%(SUMMARY_PAGE_SIZE) == 0) || i == len(keyctx)-1 || i == 0 {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 
-			offsetSummary += ite.CalcSize()
 			summaryHeader.Payload += uint64(ste.CalcSize())
 		}
+		offsetSummary += ite.CalcSize()
 
 		// Last entry holds max key.
 
