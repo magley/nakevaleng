@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	gopkg.in/yaml.v2 v2.4.0
 	github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 )
