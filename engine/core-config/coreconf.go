@@ -1,4 +1,4 @@
-package core_config
+package coreconf
 
 import (
 	"fmt"
@@ -12,18 +12,18 @@ type CoreConfig struct {
 	WalPath string `yaml:"wal_path"`
 	DBName  string `yaml:"db_name"`
 
-	SkiplistLevel       int `yaml:"skiplist_level"`
-	SkiplistLevelMax    int `yaml:"skiplist_level_max"`
-	MemtableCapacity    int `yaml:"memtable_capacity"`
-	CacheCapacity       int `yaml:"cache_capacity"`
-	SummaryPageSize     int `yaml:"summary_page_size"`
-	LsmLvlMax           int `yaml:"lsm_lvl_max"`
-	LsmRunMax           int `yaml:"lsm_run_max"`
-	TokenBucketTokens   int `yaml:"token_bucket_tokens"`
-	TokenBucketInterval int `yaml:"token_bucket_interval"`
-	WalMaxRecsInSeg     int `yaml:"wal_max_recs_in_seg"`
-	WalLwmIdx           int `yaml:"wal_lwm_idx"`
-	WalBufferCapacity   int `yaml:"wal_buffer_capacity"`
+	SkiplistLevel       int   `yaml:"skiplist_level"`
+	SkiplistLevelMax    int   `yaml:"skiplist_level_max"`
+	MemtableCapacity    int   `yaml:"memtable_capacity"`
+	CacheCapacity       int   `yaml:"cache_capacity"`
+	SummaryPageSize     int   `yaml:"summary_page_size"`
+	LsmLvlMax           int   `yaml:"lsm_lvl_max"`
+	LsmRunMax           int   `yaml:"lsm_run_max"`
+	TokenBucketTokens   int   `yaml:"token_bucket_tokens"`
+	TokenBucketInterval int64 `yaml:"token_bucket_interval"`
+	WalMaxRecsInSeg     int   `yaml:"wal_max_recs_in_seg"`
+	WalLwmIdx           int   `yaml:"wal_lwm_idx"`
+	WalBufferCapacity   int   `yaml:"wal_buffer_capacity"`
 
 	InternalStart string `yaml:"internal_start"`
 }

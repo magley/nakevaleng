@@ -1,9 +1,10 @@
-package core_engine
+package coreeng
 
 import (
 	"bufio"
 	"fmt"
 	"nakevaleng/core/wal"
+	coreconf "nakevaleng/engine/core-config"
 	"os"
 	"time"
 
@@ -17,45 +18,27 @@ import (
 	"nakevaleng/util/filename"
 )
 
-const (
-	path    = "data/"
-	walPath = "data/log/"
-	dbname  = "nakevaleng"
-
-	SKIPLIST_LEVEL       = 3
-	SKIPLIST_LEVEL_MAX   = 5
-	MEMTABLE_CAPACITY    = 10
-	CACHE_CAPACITY       = 5
-	LSM_LVL_MAX          = 4
-	LSM_RUN_MAX          = 4
-	TOKENBUCKET_TOKENS   = 100
-	TOKENBUCKET_INTERVAL = 1
-	WAL_MAX_RECS_IN_SEG  = 5
-	WAL_LWM_IDX          = 2
-	WAL_BUFFER_CAPACITY  = 5
-
-	INTERNAL_START = "$"
-)
-
 type CoreEngine struct {
+	conf  coreconf.CoreConfig
 	cache lru.LRU
 	sl    skiplist.Skiplist
 	wal   wal.WAL
-	// others are in const for now
 }
 
-func New() *CoreEngine {
+func New(conf coreconf.CoreConfig) *CoreEngine {
 	// todo remember to check internal start when implementing config here
 	return &CoreEngine{
-		*lru.New(CACHE_CAPACITY),
-		skiplist.New(SKIPLIST_LEVEL, SKIPLIST_LEVEL_MAX),
-		*wal.New(walPath, dbname, WAL_MAX_RECS_IN_SEG, WAL_LWM_IDX, WAL_BUFFER_CAPACITY),
+		conf,
+		*lru.New(conf.CacheCapacity),
+		skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax),
+		*wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg,
+			conf.WalLwmIdx, conf.WalBufferCapacity),
 	}
 }
 
 // IsLegal returns true if legal key, otherwise false
 func (cen *CoreEngine) IsLegal(key []byte) bool {
-	start := []byte(INTERNAL_START)
+	start := []byte(cen.conf.InternalStart)
 	count := 0
 	for i, c := range start {
 		if key[i] == c {
@@ -113,16 +96,16 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 
 	// Disk
 
-	greatestLevel := filename.GetLastLevel(path, dbname)
+	greatestLevel := filename.GetLastLevel(cen.conf.Path, cen.conf.DBName)
 
 	for j := 1; j <= greatestLevel; j++ {
-		greatestRun := filename.GetLastRun(path, dbname, j)
+		greatestRun := filename.GetLastRun(cen.conf.Path, cen.conf.DBName, j)
 
 		for i := greatestRun; i >= 0; i-- {
 			// Filter
 
 			q := bloomfilter.
-				DecodeFromFile(filename.Table(path, dbname, j, i, filename.TypeFilter)).
+				DecodeFromFile(filename.Table(cen.conf.Path, cen.conf.DBName, j, i, filename.TypeFilter)).
 				Query(key)
 
 			if !q {
@@ -133,7 +116,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 			// Summary
 
 			ste := sstable.FindSummaryTableEntry(
-				filename.Table(path, dbname, j, i, filename.TypeSummary),
+				filename.Table(cen.conf.Path, cen.conf.DBName, j, i, filename.TypeSummary),
 				key,
 			)
 
@@ -147,7 +130,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 			// Index
 
 			ite := sstable.FindIndexTableEntry(
-				filename.Table(path, dbname, j, i, filename.TypeIndex),
+				filename.Table(cen.conf.Path, cen.conf.DBName, j, i, filename.TypeIndex),
 				key,
 				ste.Offset,
 			)
@@ -161,7 +144,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 
 			// Data
 
-			f, _ := os.Open(filename.Table(path, dbname, j, i, filename.TypeData))
+			f, _ := os.Open(filename.Table(cen.conf.Path, cen.conf.DBName, j, i, filename.TypeData))
 			r := bufio.NewReader(f)
 
 			f.Seek(ite.Offset, 0)
@@ -185,17 +168,17 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 }
 
 func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
-	tbKey := []byte(INTERNAL_START)
+	tbKey := []byte(cen.conf.InternalStart)
 	tbKey = append(tbKey, user...)
 	tbRec, found := cen.get(tbKey)
 	if !found {
-		return *tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
+		return *tokenbucket.New(cen.conf.TokenBucketTokens, cen.conf.TokenBucketInterval)
 	}
 	return tokenbucket.FromBytes(tbRec.Value)
 }
 
 func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
-	tbKey := []byte(INTERNAL_START)
+	tbKey := []byte(cen.conf.InternalStart)
 	tbKey = append(tbKey, user...)
 	cen.put(record.New(tbKey, bucket.ToBytes()))
 }
@@ -228,11 +211,11 @@ func (cen *CoreEngine) put(rec record.Record) {
 	cen.cache.Set(rec)
 	cen.sl.Write(rec)
 
-	if cen.sl.Count > MEMTABLE_CAPACITY {
-		newRun := filename.GetLastRun(path, dbname, 1) + 1
-		sstable.MakeTable(path, dbname, 1, newRun, &cen.sl)
+	if cen.sl.Count > cen.conf.MemtableCapacity {
+		newRun := filename.GetLastRun(cen.conf.Path, cen.conf.DBName, 1) + 1
+		sstable.MakeTable(cen.conf.Path, cen.conf.DBName, 1, newRun, &cen.sl)
 		cen.sl.Clear()
-		lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+		lsmtree.Compact(cen.conf.Path, cen.conf.DBName, 1, cen.conf.LsmLvlMax, cen.conf.LsmRunMax)
 		// safe to delete old segments now since everything is on disk
 		cen.wal.DeleteOldSegments()
 	}
@@ -267,7 +250,7 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 }
 
 func main() {
-	engine := New()
+	engine := New(coreconf.LoadConfig("conf.yaml"))
 	test(engine)
 }
 
