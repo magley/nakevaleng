@@ -28,6 +28,19 @@ type WAL struct {
 // Returns a pointer to a WAL object.
 // If no segments are present in the directory, it will create one.
 func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) *WAL {
+	if maxRecordsInSegment <= 0 {
+		errMsg := fmt.Sprint("maxRecordsInSegment must be a positive number, but ", maxRecordsInSegment, " was given.")
+		panic(errMsg)
+	}
+	if lowWaterMarkIndex < 0 {
+		errMsg := fmt.Sprint("lowWaterMarkIndex must be greater than or equal to zero, but ", lowWaterMarkIndex, " was given.")
+		panic(errMsg)
+	}
+	if appendingBufferCapacity <= 0 {
+		errMsg := fmt.Sprint("appendingBufferCapacity must be a positive number, but ", appendingBufferCapacity, " was given.")
+		panic(errMsg)
+	}
+
 	segmentPaths := filename.GetSegmentPaths(walPath, dbname)
 	if len(segmentPaths) == 0 {
 		lastSegmentPath := filename.Log(walPath, dbname, 0)
