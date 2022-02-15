@@ -53,8 +53,8 @@ func New() *CoreEngine {
 	}
 }
 
-// CheckLegality returns true if legal key, otherwise false
-func (cen *CoreEngine) CheckLegality(key []byte) bool {
+// IsLegal returns true if legal key, otherwise false
+func (cen *CoreEngine) IsLegal(key []byte) bool {
 	start := []byte(INTERNAL_START)
 	count := 0
 	for i, c := range start {
@@ -68,37 +68,35 @@ func (cen *CoreEngine) CheckLegality(key []byte) bool {
 	return true
 }
 
-func (cen *CoreEngine) Get(user, key []byte) []byte {
-	legal := cen.CheckLegality(key)
+func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
+	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else
 		fmt.Println("ILLEGAL QUERY:", key)
-		return nil
+		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
-	for true {
-		if tb.HasEnoughTokens() {
-			break
-		} else {
-			fmt.Println("Slow down!")
-			time.Sleep(1 * time.Second)
-		}
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
 	}
 	cen.putTokenBucket(user, tb)
 	return cen.get(key)
 }
 
 // Get without checking legality or getting token buckets
-func (cen *CoreEngine) get(key []byte) []byte {
-	// todo check wal timestamps
+func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 	// Memtable, sort of
 
-	n := cen.sl.Find(key, true)
+	n := cen.sl.Find(key, false)
 	if n != nil {
 		nRec := n.Data
 		cen.cache.Set(nRec)
-		//fmt.Println("[found in skiplist]")
-		return nRec.Value
+		//fmt.Println("[found in skiplist]", nRec)
+		if nRec.IsDeleted() {
+			return record.Record{}, false
+		}
+		return nRec, true
 	}
 
 	// Cache
@@ -106,8 +104,11 @@ func (cen *CoreEngine) get(key []byte) []byte {
 	r, foundInCache := cen.cache.Get(string(key))
 	if foundInCache {
 		cen.cache.Set(r)
-		//fmt.Println("[cache hit]")
-		return r.Value
+		//fmt.Println("[cache hit]", r)
+		if r.IsDeleted() {
+			return record.Record{}, false
+		}
+		return r, true
 	}
 
 	// Disk
@@ -161,62 +162,66 @@ func (cen *CoreEngine) get(key []byte) []byte {
 			// Data
 
 			f, _ := os.Open(filename.Table(path, dbname, j, i, filename.TypeData))
-			defer f.Close()
 			r := bufio.NewReader(f)
 
 			f.Seek(ite.Offset, 0)
 			rec := record.Record{}
 			rec.Deserialize(r)
+			f.Close()
 
+			// record is deleted, so don't return it
+			if rec.IsDeleted() {
+				//fmt.Println("[RESPECTING THE DEAD]", rec)
+				return record.Record{}, false
+			}
+
+			// todo should this be a few lines above for consistency?
 			cen.cache.Set(rec)
-			return rec.Value
+			return rec, true
 		}
 	}
 
-	return nil
+	return record.Record{}, false
 }
 
 func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	tbBytes := cen.get(tbKey)
-	if tbBytes == nil {
+	tbRec, found := cen.get(tbKey)
+	if !found {
 		return *tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 	}
-	return tokenbucket.FromBytes(cen.get(tbKey))
+	return tokenbucket.FromBytes(tbRec.Value)
 }
 
 func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
 	tbKey := []byte(INTERNAL_START)
 	tbKey = append(tbKey, user...)
-	cen.put(tbKey, bucket.ToBytes())
+	cen.put(record.New(tbKey, bucket.ToBytes()))
 }
 
-func (cen *CoreEngine) Put(user, key, val []byte) bool {
-	legal := cen.CheckLegality(key)
+func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
+	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
 		fmt.Println("ILLEGAL QUERY:", key)
 		return false
 	}
 	tb := cen.getTokenBucket(user)
-	for true {
-		if tb.HasEnoughTokens() {
-			break
-		} else {
-			fmt.Println("Slow down!")
-			time.Sleep(1 * time.Second)
-		}
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
 	}
 	cen.putTokenBucket(user, tb)
-	cen.put(key, val)
+	rec := record.New(key, val)
+	rec.TypeInfo = typeInfo
+	cen.put(rec)
 	return true
 }
 
-func (cen *CoreEngine) put(key, val []byte) {
-	rec := record.New(key, val)
+func (cen *CoreEngine) put(rec record.Record) {
 	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
-	isTokenBucket := !cen.CheckLegality(key)
+	isTokenBucket := !cen.IsLegal(rec.Key)
 	if !isTokenBucket {
 		cen.wal.BufferedAppend(rec)
 	}
@@ -234,8 +239,31 @@ func (cen *CoreEngine) put(key, val []byte) {
 }
 
 func (cen *CoreEngine) Delete(user, key []byte) bool {
-	//todo
-	return false
+	legal := cen.IsLegal(key)
+	if !legal {
+		// todo might want to handle this somewhere else by returning err
+		fmt.Println("ILLEGAL QUERY:", key)
+		return false
+	}
+	tb := cen.getTokenBucket(user)
+	for !tb.HasEnoughTokens() {
+		fmt.Println("Slow down!")
+		time.Sleep(1 * time.Second)
+	}
+	cen.putTokenBucket(user, tb)
+	rec, found := cen.get(key)
+	if !found {
+		fmt.Println("CAN'T DELETE. NO SUCH RECORD WITH KEY:", key)
+		return false
+	}
+	// todo remove two below
+	if rec.IsDeleted() {
+		panic(rec)
+	}
+	rec.Status |= record.RECORD_TOMBSTONE_REMOVED
+	cen.put(rec)
+	// todo maybe add cache removal here
+	return true
 }
 
 func main() {
@@ -245,8 +273,7 @@ func main() {
 
 func test(engine *CoreEngine) {
 	user := "USER"
-	tbu := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
-	engine.put([]byte(INTERNAL_START+user), tbu.ToBytes())
+	noType := byte(0) // doesn't matter for now, the wrapper engine should bother with it
 
 	// Insert
 
@@ -254,6 +281,7 @@ func test(engine *CoreEngine) {
 		engine.Put([]byte(user),
 			[]byte(fmt.Sprintf("key_%03d", i)),
 			[]byte(fmt.Sprintf("val_FIRST_PASS_%03d", i)),
+			noType,
 		)
 	}
 	time.Sleep(1 * time.Second)
@@ -261,8 +289,15 @@ func test(engine *CoreEngine) {
 		engine.Put([]byte(user),
 			[]byte(fmt.Sprintf("key_%03d", i)),
 			[]byte(fmt.Sprintf("val_SECOND_PASS_%03d", i)),
+			noType,
 		)
 	}
+
+	// Delete some
+
+	engine.Delete([]byte(user), []byte("key_000"))
+	engine.Delete([]byte(user), []byte("key_000"))
+	engine.Delete([]byte(user), []byte("key_114"))
 
 	// Search
 
@@ -290,8 +325,9 @@ func test(engine *CoreEngine) {
 		"key_134",
 	}
 	for _, key := range keysToSearch {
-		v := engine.Get([]byte(user), []byte(key))
-		if v != nil {
+		rec, found := engine.Get([]byte(user), []byte(key))
+		v := rec.Value
+		if found {
 			fmt.Printf("%s found: ", key)
 			fmt.Println(string(v))
 		} else {
