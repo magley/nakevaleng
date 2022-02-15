@@ -55,7 +55,6 @@ func LoadConfig(filePath string) CoreConfig {
 		err = yaml.UnmarshalStrict(configData, &config)
 		if err != nil {
 			log.Println("Config file at", filePath, "is not valid. Using defaults. Error is:\n", err)
-			return config
 		}
 	}
 	return config
