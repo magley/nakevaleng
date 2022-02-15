@@ -25,7 +25,7 @@ type HLL struct {
 }
 
 // Returns a pointer to a new HLL object.
-func New(precision uint8) *HLL {
+func New(precision int) *HLL {
 	if precision < HLL_MIN_PRECISION || precision > HLL_MAX_PRECISION {
 		errMsg := fmt.Sprint("precision must be between ", HLL_MIN_PRECISION, " and ", HLL_MAX_PRECISION, ", but ", precision, " was given.")
 		panic(errMsg)
@@ -34,7 +34,7 @@ func New(precision uint8) *HLL {
 	m := uint64(math.Pow(2, float64(precision)))
 	reg := make([]uint8, m)
 
-	return &HLL{m, precision, reg}
+	return &HLL{m, uint8(precision), reg}
 }
 
 func (hll *HLL) Add(data []byte) {
