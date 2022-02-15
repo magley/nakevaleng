@@ -1,6 +1,7 @@
-package main
+package wrappereng
 
 import (
+	"fmt"
 	"nakevaleng/core/record"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/hll"
@@ -53,5 +54,52 @@ func main() {
 }
 
 func test(engine WrapperEngine) {
-	// todo
+	user := "USER"
+
+	// cms testing
+	fmt.Println("===CMS===")
+	cms := *cmsketch.New(0.1, 0.1)
+	fmt.Println(cms.K)
+	fmt.Println(cms.M)
+	cms.Insert([]byte{1, 2})
+	cms.Insert([]byte{1, 2})
+	cms.Insert([]byte{3, 4})
+	fmt.Println(cms.Contents)
+	fmt.Println(cms.Query([]byte{1, 2}))
+	fmt.Println(cms.Query([]byte{3, 4}))
+	fmt.Println(cms.Query([]byte{2, 5}))
+	fmt.Println("AFTER ENGINEERING")
+	engine.PutCMS(user, "cs", cms)
+	rec, found := engine.Get(user, "cs")
+	if !found || rec.TypeInfo != TypeCountMinSketch {
+		panic(rec)
+	}
+	cms2 := cmsketch.DecodeFromBytes(rec.Value)
+	fmt.Println(cms2.K)
+	fmt.Println(cms2.M)
+	//cms2.Insert([]byte{1, 2})
+	//cms2.Insert([]byte{1, 2})
+	//cms2.Insert([]byte{3, 4})
+	fmt.Println(cms2.Contents)
+	fmt.Println(cms2.Query([]byte{1, 2}))
+	fmt.Println(cms2.Query([]byte{3, 4}))
+	fmt.Println(cms2.Query([]byte{2, 5}))
+
+	// hll testing
+	fmt.Println("\n===HLL===")
+	hll1 := *hll.New(4)
+	hll1.Add([]byte{1, 2})
+	hll1.Add([]byte{1, 2})
+	hll1.Add([]byte{1, 2})
+	hll1.Add([]byte{3, 4, 6})
+	hll1.Add([]byte{5, 4, 120})
+	fmt.Println(hll1.Estimate())
+	fmt.Println("AFTER ENGINEERING")
+	engine.PutHLL(user, "hl", hll1)
+	rec, found = engine.Get(user, "hl")
+	if !found || rec.TypeInfo != TypeHyperLogLog {
+		panic(rec)
+	}
+	hll2 := hll.DecodeFromBytes(rec.Value)
+	fmt.Println(hll2.Estimate())
 }
