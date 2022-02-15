@@ -25,7 +25,6 @@ type CoreConfig struct {
 	WalMaxRecsInSeg     int   `yaml:"wal_max_recs_in_seg"`
 	WalLwmIdx           int   `yaml:"wal_lwm_idx"`
 	WalBufferCapacity   int   `yaml:"wal_buffer_capacity"`
-	HllPrecision        int   `yaml:"hll_precision"`
 
 	InternalStart string `yaml:"internal_start"`
 }
@@ -47,7 +46,6 @@ func LoadConfig(filePath string) CoreConfig {
 	config.WalMaxRecsInSeg = 5
 	config.WalLwmIdx = 2
 	config.WalBufferCapacity = 5
-	config.HllPrecision = 4
 	config.InternalStart = "$"
 
 	configData, err := ioutil.ReadFile(filePath)
