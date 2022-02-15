@@ -66,3 +66,20 @@ func (lru *LRU) Set(rec record.Record) {
 	newElement := lru.Order.PushFront(rec)
 	lru.Data[key] = newElement
 }
+
+// Removes the record with the passed key and returns it (as well as a success flag).
+// If the record was successfully found and removed, it will return that record and true.
+// Otherwise, it will return an empty record and false.
+func (lru *LRU) Remove(key string) (record.Record, bool) {
+	el, exists := lru.Data[key]
+	if !exists {
+		return record.Record{}, false
+	}
+
+	rec := el.Value.(record.Record)
+
+	delete(lru.Data, string(rec.Key))
+	lru.Order.Remove(el)
+
+	return rec, true
+}

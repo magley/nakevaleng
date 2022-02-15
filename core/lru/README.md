@@ -32,4 +32,10 @@ lru.Set(rec4)
 // New order:
 // rec3 rec1 rec4
 
+
+lru.Remove(rec4)
+
+// New order:
+// rec3 rec1
+
 ```
