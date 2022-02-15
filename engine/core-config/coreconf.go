@@ -16,6 +16,7 @@ type CoreConfig struct {
 	SkiplistLevelMax    int `yaml:"skiplist_level_max"`
 	MemtableCapacity    int `yaml:"memtable_capacity"`
 	CacheCapacity       int `yaml:"cache_capacity"`
+	SummaryPageSize     int `yaml:"summary_page_size"`
 	LsmLvlMax           int `yaml:"lsm_lvl_max"`
 	LsmRunMax           int `yaml:"lsm_run_max"`
 	TokenBucketTokens   int `yaml:"token_bucket_tokens"`
@@ -36,6 +37,7 @@ func LoadConfig(filePath string) CoreConfig {
 	config.SkiplistLevelMax = 5
 	config.MemtableCapacity = 10
 	config.CacheCapacity = 5
+	config.SummaryPageSize = 3
 	config.LsmLvlMax = 4
 	config.LsmRunMax = 4
 	config.TokenBucketTokens = 100
