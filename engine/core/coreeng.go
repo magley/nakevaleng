@@ -26,7 +26,7 @@ type CoreEngine struct {
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
-	// todo remember to check internal start when implementing config here
+	// todo remember to check internal start and others when implementing config here
 	return &CoreEngine{
 		conf,
 		*lru.New(conf.CacheCapacity),
