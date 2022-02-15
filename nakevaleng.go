@@ -134,9 +134,9 @@ func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skipl
 
 		if skipli.Count > MEMTABLE_CAPACITY {
 			newRun := filename.GetLastRun(path, dbname, 1) + 1
-			sstable.MakeTable(path, dbname, 1, newRun, skipli)
+			sstable.MakeTable(path, dbname, 3, 1, newRun, skipli)
 			skipli.Clear()
-			lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+			lsmtree.Compact(path, dbname, 3, 1, LSM_LVL_MAX, LSM_RUN_MAX)
 		}
 	}
 
