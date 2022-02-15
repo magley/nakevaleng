@@ -1,4 +1,4 @@
-package main
+package core_engine
 
 import (
 	"bufio"
@@ -45,6 +45,7 @@ type CoreEngine struct {
 }
 
 func New() *CoreEngine {
+	// todo remember to check internal start when implementing config here
 	return &CoreEngine{
 		*lru.New(CACHE_CAPACITY),
 		skiplist.New(SKIPLIST_LEVEL, SKIPLIST_LEVEL_MAX),

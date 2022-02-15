@@ -1,0 +1,15 @@
+path: data/
+wal_path: data/log/
+db_name: nakevaleng
+skiplist_level: 3
+skiplist_level_max: 5
+memtable_capacity: 10
+cache_capacity: 5
+lsm_lvl_max: 4
+lsm_run_max: 4
+token_bucket_tokens: 100
+token_bucket_interval: 1
+wal_max_recs_in_seg: 5
+wal_lwm_idx: 2
+wal_buffer_capacity: 5
+internal_start: $
