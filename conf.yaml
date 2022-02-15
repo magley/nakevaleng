@@ -13,4 +13,5 @@ token_bucket_interval: 1
 wal_max_recs_in_seg: 5
 wal_lwm_idx: 2
 wal_buffer_capacity: 5
+hll_precision: 4
 internal_start: $
