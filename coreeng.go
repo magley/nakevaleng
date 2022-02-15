@@ -33,6 +33,7 @@ const (
 	WAL_MAX_RECS_IN_SEG  = 5
 	WAL_LWM_IDX          = 2
 	WAL_BUFFER_CAPACITY  = 5
+	HLL_PRECISION        = 4
 
 	INTERNAL_START = "$"
 )
