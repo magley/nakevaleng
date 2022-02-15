@@ -337,8 +337,22 @@ func (wal *WAL) DeleteOldSegments() {
 		wal.segmentPaths[i] = newPath
 	}
 
-	wal.lastSegmentPath = wal.segmentPaths[len(wal.segmentPaths)-1]
-	wal.lastSegmentNumOfRecords = calculateNumOfRecordsInSegment(wal.lastSegmentPath)
+	if len(wal.segmentPaths) != 0 {
+		wal.lastSegmentPath = wal.segmentPaths[len(wal.segmentPaths)-1]
+		wal.lastSegmentNumOfRecords = calculateNumOfRecordsInSegment(wal.lastSegmentPath)
+	} else {
+		newSegmentPath := filename.Log(wal.walPath, wal.dbname, 0)
+
+		file, err := os.Create(newSegmentPath)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		wal.segmentPaths = append(wal.segmentPaths, newSegmentPath)
+		wal.lastSegmentPath = newSegmentPath
+		wal.lastSegmentNumOfRecords = 0
+	}
 }
 
 // Removes all the segments from the filesystem. This should be called after flushing the memtable.
