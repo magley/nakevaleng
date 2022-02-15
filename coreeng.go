@@ -52,8 +52,8 @@ func New() *CoreEngine {
 	}
 }
 
-// CheckLegality returns true if legal key, otherwise false
-func (cen *CoreEngine) CheckLegality(key []byte) bool {
+// IsLegal returns true if legal key, otherwise false
+func (cen *CoreEngine) IsLegal(key []byte) bool {
 	start := []byte(INTERNAL_START)
 	count := 0
 	for i, c := range start {
@@ -68,7 +68,7 @@ func (cen *CoreEngine) CheckLegality(key []byte) bool {
 }
 
 func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
-	legal := cen.CheckLegality(key)
+	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else
 		fmt.Println("ILLEGAL QUERY:", key)
@@ -174,6 +174,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 				return record.Record{}, false
 			}
 
+			// todo should this be a few lines above for consistency?
 			cen.cache.Set(rec)
 			return rec, true
 		}
@@ -199,7 +200,7 @@ func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucke
 }
 
 func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
-	legal := cen.CheckLegality(key)
+	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
 		fmt.Println("ILLEGAL QUERY:", key)
@@ -219,7 +220,7 @@ func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 
 func (cen *CoreEngine) put(rec record.Record) {
 	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
-	isTokenBucket := !cen.CheckLegality(rec.Key)
+	isTokenBucket := !cen.IsLegal(rec.Key)
 	if !isTokenBucket {
 		cen.wal.BufferedAppend(rec)
 	}
@@ -237,7 +238,7 @@ func (cen *CoreEngine) put(rec record.Record) {
 }
 
 func (cen *CoreEngine) Delete(user, key []byte) bool {
-	legal := cen.CheckLegality(key)
+	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
 		fmt.Println("ILLEGAL QUERY:", key)
