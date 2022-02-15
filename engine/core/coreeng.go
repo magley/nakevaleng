@@ -1,4 +1,4 @@
-package coreeng
+package main
 
 import (
 	"bufio"
@@ -26,7 +26,10 @@ type CoreEngine struct {
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
-	// todo remember to check internal start and others when implementing config here
+	// todo remember to check others when implementing config here!!!
+	if len(conf.InternalStart) == 0 {
+		return nil
+	}
 	return &CoreEngine{
 		conf,
 		*lru.New(conf.CacheCapacity),
@@ -37,7 +40,7 @@ func New(conf coreconf.CoreConfig) *CoreEngine {
 }
 
 // IsLegal returns true if legal key, otherwise false
-func (cen *CoreEngine) IsLegal(key []byte) bool {
+func (cen CoreEngine) IsLegal(key []byte) bool {
 	start := []byte(cen.conf.InternalStart)
 	count := 0
 	for i, c := range start {
@@ -51,7 +54,7 @@ func (cen *CoreEngine) IsLegal(key []byte) bool {
 	return true
 }
 
-func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
+func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else
@@ -68,7 +71,7 @@ func (cen *CoreEngine) Get(user, key []byte) (record.Record, bool) {
 }
 
 // Get without checking legality or getting token buckets
-func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
+func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 	// Memtable, sort of
 
 	n := cen.sl.Find(key, false)
@@ -167,7 +170,7 @@ func (cen *CoreEngine) get(key []byte) (record.Record, bool) {
 	return record.Record{}, false
 }
 
-func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
+func (cen CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey := []byte(cen.conf.InternalStart)
 	tbKey = append(tbKey, user...)
 	tbRec, found := cen.get(tbKey)
@@ -177,13 +180,13 @@ func (cen *CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	return tokenbucket.FromBytes(tbRec.Value)
 }
 
-func (cen *CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
+func (cen CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket) {
 	tbKey := []byte(cen.conf.InternalStart)
 	tbKey = append(tbKey, user...)
 	cen.put(record.New(tbKey, bucket.ToBytes()))
 }
 
-func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
+func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
@@ -202,7 +205,7 @@ func (cen *CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	return true
 }
 
-func (cen *CoreEngine) put(rec record.Record) {
+func (cen CoreEngine) put(rec record.Record) {
 	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
 	isTokenBucket := !cen.IsLegal(rec.Key)
 	if !isTokenBucket {
@@ -221,7 +224,7 @@ func (cen *CoreEngine) put(rec record.Record) {
 	}
 }
 
-func (cen *CoreEngine) Delete(user, key []byte) bool {
+func (cen CoreEngine) Delete(user, key []byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
@@ -250,11 +253,11 @@ func (cen *CoreEngine) Delete(user, key []byte) bool {
 }
 
 func main() {
-	engine := New(coreconf.LoadConfig("conf.yaml"))
+	engine := *New(coreconf.LoadConfig("conf.yaml"))
 	test(engine)
 }
 
-func test(engine *CoreEngine) {
+func test(engine CoreEngine) {
 	user := "USER"
 	noType := byte(0) // doesn't matter for now, the wrapper engine should bother with it
 
