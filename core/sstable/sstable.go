@@ -11,14 +11,10 @@ import (
 	"os"
 )
 
-const (
-	SUMMARY_PAGE_SIZE = 3
-)
-
 // MakeTable creates a new SSTable from the data given as a skiplist.
 // You should only use this when flushing a Memtable to a level 1 SStable (minor compaction).
 // For all other cases (i.e. when major compaction happens), use MakeTableSecondaries().
-func MakeTable(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
+func MakeTable(path, dbname string, summaryPageSize, level, run int, list *skiplist.Skiplist) {
 	makeDataTable(path, dbname, level, run, list)
 	{
 		keycontexts := []record.KeyContext{}
@@ -28,7 +24,7 @@ func MakeTable(path string, dbname string, level int, run int, list *skiplist.Sk
 				RecSize: n.Data.TotalSize(),
 			})
 		}
-		makeIndexAndSummary(path, dbname, level, run, keycontexts)
+		makeIndexAndSummary(path, dbname, summaryPageSize, level, run, keycontexts)
 		makeFilter(path, dbname, level, run, keycontexts)
 	}
 
@@ -36,14 +32,14 @@ func MakeTable(path string, dbname string, level int, run int, list *skiplist.Sk
 }
 
 // MakeTableSecondaries creates a new SSTable (except for the Data table) based on input parameters.
-func MakeTableSecondaries(path string, dbname string, level int, run int, merkleleaves []merkletree.MerkleNode, keyctx []record.KeyContext) {
-	makeIndexAndSummary(path, dbname, level, run, keyctx)
+func MakeTableSecondaries(path, dbname string, summaryPageSize, level, run int, merkleleaves []merkletree.MerkleNode, keyctx []record.KeyContext) {
+	makeIndexAndSummary(path, dbname, summaryPageSize, level, run, keyctx)
 	makeFilter(path, dbname, level, run, keyctx)
 	merkleTree := merkletree.New(merkleleaves)
 	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
 }
 
-func makeFilter(path string, dbname string, level int, run int, keyctx []record.KeyContext) {
+func makeFilter(path, dbname string, level, run int, keyctx []record.KeyContext) {
 	bf := bloomfilter.New(len(keyctx), 0.01)
 	for _, kc := range keyctx {
 		bf.Insert(kc.Key)
@@ -52,7 +48,7 @@ func makeFilter(path string, dbname string, level int, run int, keyctx []record.
 	bf.EncodeToFile(filename.Table(path, dbname, level, run, filename.TypeFilter))
 }
 
-func makeMetadata(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
+func makeMetadata(path, dbname string, level, run int, list *skiplist.Skiplist) {
 	merkleNodes := make([]merkletree.MerkleNode, 0)
 	{
 		n := list.Header.Next[0]
@@ -66,7 +62,7 @@ func makeMetadata(path string, dbname string, level int, run int, list *skiplist
 	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
 }
 
-func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx []record.KeyContext) {
+func makeIndexAndSummary(path, dbname string, summaryPageSize, level, run int, keyctx []record.KeyContext) {
 	fnameIndex := filename.Table(path, dbname, level, run, filename.TypeIndex)
 	fnameSummary := filename.Table(path, dbname, level, run, filename.TypeSummary)
 
@@ -101,7 +97,7 @@ func makeIndexAndSummary(path string, dbname string, level int, run int, keyctx 
 
 		// Create an STE if we've written k ITE's OR this is the last entry in the slice.
 
-		if (i != 0 && i%(SUMMARY_PAGE_SIZE) == 0) || i == len(keyctx)-1 || i == 0 {
+		if (i != 0 && i%(summaryPageSize) == 0) || i == len(keyctx)-1 || i == 0 {
 			ste := summaryTableEntry{KeySize: ite.KeySize, Offset: offsetSummary, Key: ite.Key}
 			summaryEntries = append(summaryEntries, ste)
 

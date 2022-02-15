@@ -31,7 +31,7 @@ func needsCompaction(path, dbname string, level int, RUN_MAX int) bool {
 // The result of a compaction is a new SSTable in the first available run on the next level.
 // Chaining is performed in case the next level requires a compation after a new SSTable is created.
 // Only the Data table is created from the existing set, everything else is recreated.
-func Compact(path, dbname string, level int, LVL_MAX, RUN_MAX int) {
+func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_MAX int) {
 	if !needsCompaction(path, dbname, level, RUN_MAX) {
 		return
 	}
@@ -68,7 +68,7 @@ func Compact(path, dbname string, level int, LVL_MAX, RUN_MAX int) {
 	outRun := filename.GetLastRun(path, dbname, outLevel) + 1
 	outDataFname := filename.Table(path, dbname, outLevel, outRun, filename.TypeData)
 	merkletreeLeaves, keyCtx := merge(inFileHandles, outDataFname)
-	sstable.MakeTableSecondaries(path, dbname, outLevel, outRun, merkletreeLeaves, keyCtx)
+	sstable.MakeTableSecondaries(path, dbname, summaryPageSize, outLevel, outRun, merkletreeLeaves, keyCtx)
 
 	// Close everything and remove tables from the old level.
 
@@ -97,7 +97,7 @@ func Compact(path, dbname string, level int, LVL_MAX, RUN_MAX int) {
 
 	// Chaining (won't do anything if next level doesn't need compaction yet).
 
-	Compact(path, dbname, level+1, LVL_MAX, RUN_MAX)
+	Compact(path, dbname, summaryPageSize, level+1, LVL_MAX, RUN_MAX)
 }
 
 // merge performs a k-way merge for the tables on a given level.

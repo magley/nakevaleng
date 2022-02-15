@@ -17,23 +17,23 @@ import (
 	"nakevaleng/util/filename"
 )
 
-//const (
-//	path    = "data/"
-//	walPath = "data/log/"
-//	dbname  = "nakevaleng"
-//
-//	SKIPLIST_LEVEL       = 3
-//	SKIPLIST_LEVEL_MAX   = 5
-//	MEMTABLE_CAPACITY    = 10
-//	CACHE_CAPACITY       = 5
-//	LSM_LVL_MAX          = 4
-//	LSM_RUN_MAX          = 4
-//	TOKENBUCKET_TOKENS   = 50
-//	TOKENBUCKET_INTERVAL = 1
-//	WAL_MAX_RECS_IN_SEG  = 5
-//	WAL_LWM_IDX          = 2
-//	WAL_BUFFER_CAPACITY  = 5
-//)
+const (
+	path    = "data/"
+	walPath = "data/log/"
+	dbname  = "nakevaleng"
+
+	SKIPLIST_LEVEL       = 3
+	SKIPLIST_LEVEL_MAX   = 5
+	MEMTABLE_CAPACITY    = 10
+	CACHE_CAPACITY       = 5
+	LSM_LVL_MAX          = 4
+	LSM_RUN_MAX          = 4
+	TOKENBUCKET_TOKENS   = 50
+	TOKENBUCKET_INTERVAL = 1
+	WAL_MAX_RECS_IN_SEG  = 5
+	WAL_LWM_IDX          = 2
+	WAL_BUFFER_CAPACITY  = 5
+)
 
 func main0() {
 	cache := lru.New(CACHE_CAPACITY)
@@ -134,9 +134,9 @@ func insert(dataToInsert []record.Record, cache *lru.LRU, skipli *skiplist.Skipl
 
 		if skipli.Count > MEMTABLE_CAPACITY {
 			newRun := filename.GetLastRun(path, dbname, 1) + 1
-			sstable.MakeTable(path, dbname, 1, newRun, skipli)
+			sstable.MakeTable(path, dbname, 3, 1, newRun, skipli)
 			skipli.Clear()
-			lsmtree.Compact(path, dbname, 1, LSM_LVL_MAX, LSM_RUN_MAX)
+			lsmtree.Compact(path, dbname, 3, 1, LSM_LVL_MAX, LSM_RUN_MAX)
 		}
 	}
 
