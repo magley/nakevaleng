@@ -5,8 +5,8 @@ import (
 	"nakevaleng/core/record"
 	"nakevaleng/ds/cmsketch"
 	"nakevaleng/ds/hll"
-	coreeng "nakevaleng/engine/core"
-	coreconf "nakevaleng/engine/core-config"
+	"nakevaleng/engine/coreconf"
+	"nakevaleng/engine/coreeng"
 )
 
 // the types as kept in records

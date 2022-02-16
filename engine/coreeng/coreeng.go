@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"nakevaleng/core/memtable"
 	"nakevaleng/core/wal"
-	coreconf "nakevaleng/engine/core-config"
+	"nakevaleng/engine/coreconf"
 	"os"
 	"time"
 
@@ -18,10 +18,10 @@ import (
 )
 
 type CoreEngine struct {
-	conf     coreconf.CoreConfig
-	cache    *lru.LRU
-	memtable *memtable.Memtable
-	wal      *wal.WAL
+	conf  coreconf.CoreConfig
+	cache *lru.LRU
+	mt    *memtable.Memtable
+	wal   *wal.WAL
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
@@ -71,7 +71,7 @@ func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 
 // Get without checking legality or getting token buckets
 func (cen CoreEngine) get(key []byte) (record.Record, bool) {
-	rec, exists := cen.memtable.Find(key)
+	rec, exists := cen.mt.Find(key)
 	if exists {
 		cen.cache.Set(rec)
 		if rec.IsDeleted() {
@@ -207,10 +207,10 @@ func (cen CoreEngine) put(rec record.Record) {
 		cen.wal.BufferedAppend(rec)
 	}
 	cen.cache.Set(rec)
-	isFull := cen.memtable.Add(rec)
+	isFull := cen.mt.Add(rec)
 
 	if isFull {
-		cen.memtable.Flush()
+		cen.mt.Flush()
 		// safe to delete old segments now since everything is on disk
 		cen.FlushWALBuffer()
 		cen.wal.DeleteOldSegments()

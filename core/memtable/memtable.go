@@ -5,43 +5,43 @@ import (
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
-	coreconf "nakevaleng/engine/core-config"
+	"nakevaleng/engine/coreconf"
 	"nakevaleng/util/filename"
 )
 
 type Memtable struct {
-	conf     coreconf.CoreConfig
-	skiplist *skiplist.Skiplist
+	conf coreconf.CoreConfig
+	sl   *skiplist.Skiplist
 }
 
 // Returns a pointer to a new Memtable object.
 func New(conf coreconf.CoreConfig) *Memtable {
-	skiplist := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
+	sl := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
 	return &Memtable{
-		conf:     conf,
-		skiplist: skiplist,
+		conf: conf,
+		sl:   sl,
 	}
 }
 
-// Adds a record to the memtable. Returns whether or not the memtable is now full, making flushing necessary.
+// Add a record to the memtable. Returns whether or not the memtable is now full, making flushing necessary.
 // Note that if a record with the same key already exists in the memtable, it gets updated with the new value,
 // with no change to the memtable size.
-func (memtable *Memtable) Add(rec record.Record) bool {
-	memtable.skiplist.Write(rec)
+func (mt *Memtable) Add(rec record.Record) bool {
+	mt.sl.Write(rec)
 
-	return memtable.skiplist.Count == memtable.conf.MemtableCapacity
+	return mt.sl.Count == mt.conf.MemtableCapacity
 }
 
 // Remove a record with the given key from the memtable. Note that "removing" just means
 // setting the tombstone bit (logical deletion).
-func (memtable *Memtable) Remove(key []byte) {
-	memtable.skiplist.Remove(key)
+func (mt *Memtable) Remove(key []byte) {
+	mt.sl.Remove(key)
 }
 
 // Find a record with the given key in the memtable.
-func (memtable *Memtable) Find(key []byte) (record.Record, bool) {
-	slNode := memtable.skiplist.Find(key)
+func (mt *Memtable) Find(key []byte) (record.Record, bool) {
+	slNode := mt.sl.Find(key)
 
 	if slNode != nil {
 		return slNode.Data, true
@@ -50,10 +50,10 @@ func (memtable *Memtable) Find(key []byte) (record.Record, bool) {
 	}
 }
 
-// Flushes the memtable to disk, forming an SSTable.
+// Flush the memtable to disk, forming an SSTable.
 func (mt *Memtable) Flush() {
 	newRun := filename.GetLastRun(mt.conf.Path, mt.conf.DBName, 1) + 1
-	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.skiplist)
-	mt.skiplist.Clear()
+	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.sl)
+	mt.sl.Clear()
 	lsmtree.Compact(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, mt.conf.LsmLvlMax, mt.conf.LsmRunMax)
 }
