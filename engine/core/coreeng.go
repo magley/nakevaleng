@@ -220,7 +220,7 @@ func (cen CoreEngine) put(rec record.Record) {
 		cen.sl.Clear()
 		lsmtree.Compact(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, cen.conf.LsmLvlMax, cen.conf.LsmRunMax)
 		// safe to delete old segments now since everything is on disk
-		cen.wal.FlushBuffer()
+		cen.FlushWALBuffer()
 		cen.wal.DeleteOldSegments()
 	}
 }
@@ -251,6 +251,10 @@ func (cen CoreEngine) Delete(user, key []byte) bool {
 	cen.put(rec)
 	// todo maybe add cache removal here
 	return true
+}
+
+func (cen CoreEngine) FlushWALBuffer() {
+	cen.wal.FlushBuffer()
 }
 
 func main() {
@@ -321,4 +325,5 @@ func test(engine CoreEngine) {
 			fmt.Printf("%s not found\n", key)
 		}
 	}
+	engine.FlushWALBuffer()
 }
