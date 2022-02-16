@@ -1,4 +1,4 @@
-package wrappereng
+package main
 
 import (
 	"fmt"
@@ -64,6 +64,10 @@ func (wen WrapperEngine) GetHLL(user, key string) *hll.HLL {
 	return hll.DecodeFromBytes(rec.Value)
 }
 
+func (wen WrapperEngine) FlushWALBuffer() {
+	wen.core.FlushWALBuffer()
+}
+
 func main() {
 	engine := New(coreconf.LoadConfig("conf.yaml"))
 	test(engine)
@@ -118,4 +122,5 @@ func test(engine WrapperEngine) {
 	}
 	hll2 := hll.DecodeFromBytes(rec.Value)
 	fmt.Println(hll2.Estimate())
+	engine.FlushWALBuffer()
 }
