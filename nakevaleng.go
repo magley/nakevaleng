@@ -6,6 +6,7 @@ import (
 	hyperloglog "nakevaleng/ds/hll"
 	"nakevaleng/engine/coreconf"
 	"nakevaleng/engine/wrappereng"
+	"strconv"
 )
 
 func main() {
@@ -24,20 +25,22 @@ func test_cli(eng *wrappereng.WrapperEngine) {
 	for true {
 		if badCommand {
 			fmt.Println()
-			fmt.Println("put  [key] [val]  -  insert record")
-			fmt.Println("get  [key]        -  find record by key")
-			fmt.Println("del  [key]        -  delete record by key")
-			fmt.Println("hll  [key] [val]  -  Put element [val] into HLL [key]")
-			fmt.Println("hll  [key]        -  Get estimate for HLL [key]")
-			fmt.Println("cms  [key] [val]  -  Put element [val] into CMS [key]")
-			fmt.Println("cmsq [key] [val]  -  Get estimate for element [val] in CMS [key]")
-			fmt.Println("quit              -  Exit program")
+			fmt.Println("put  [key] [val]   -  insert record")
+			fmt.Println("get  [key]         -  find record by key")
+			fmt.Println("del  [key]         -  delete record by key")
+			fmt.Println("hllc [key] [k]     -  Create HLL object [key] with precision [k] (between 4 and 16)")
+			fmt.Println("hll  [key] [val]   -  Put element [val] into HLL [key]")
+			fmt.Println("hll  [key]         -  Get estimate for HLL [key]")
+			fmt.Println("cmsc [key] [e] [d] -  Create CMS object [key] with epsilon [e] and delta [d] (both 0-1)")
+			fmt.Println("cms  [key] [val]   -  Put element [val] into CMS [key]")
+			fmt.Println("cmsq [key] [val]   -  Get estimate for element [val] in CMS [key]")
+			fmt.Println("quit               -  Exit program")
 			badCommand = false
 		}
 		fmt.Print("\n>")
 
-		cmd, key, val := "", "", ""
-		n, _ := fmt.Scanf("%s %s %s\n", &cmd, &key, &val)
+		cmd, key, val, arg4 := "", "", "", ""
+		n, _ := fmt.Scanf("%s %s %s %s\n", &cmd, &key, &val, &arg4)
 
 		if cmd == "quit" {
 			break
@@ -71,11 +74,28 @@ func test_cli(eng *wrappereng.WrapperEngine) {
 			} else {
 				fmt.Println(key, "removed.")
 			}
+		} else if cmd == "hllc" {
+			if n != 3 {
+				badCommand = true
+				continue
+			}
+			precision, err := strconv.Atoi(val)
+			if err != nil {
+				badCommand = true
+				continue
+			}
+			if precision > hyperloglog.HLL_MAX_PRECISION || precision < hyperloglog.HLL_MIN_PRECISION {
+				badCommand = true
+				continue
+			}
+			hll := hyperloglog.New(precision)
+			eng.PutHLL(user, key, *hll)
 		} else if cmd == "hll" {
 			if n == 3 {
 				hll := eng.GetHLL(user, key)
 				if hll == nil {
-					hll = hyperloglog.New(10)
+					fmt.Println(key, "not found.")
+					continue
 				}
 				hll.Add([]byte(val))
 				eng.PutHLL(user, key, *hll)
@@ -91,6 +111,28 @@ func test_cli(eng *wrappereng.WrapperEngine) {
 				continue
 			}
 			continue
+		} else if cmd == "cmsc" {
+			if n != 4 {
+				badCommand = true
+				continue
+			}
+			epsilon, err := strconv.ParseFloat(val, 32)
+			if err != nil {
+				badCommand = true
+				continue
+			}
+			delta, err := strconv.ParseFloat(arg4, 32)
+			if err != nil {
+				badCommand = true
+				continue
+			}
+			if epsilon < 0 || epsilon > 1 || delta < 0 || delta > 1 {
+				badCommand = true
+				continue
+			}
+			cms := cmsketch.New(epsilon, delta)
+			eng.PutCMS(user, key, *cms)
+
 		} else if cmd == "cms" {
 			if n != 3 {
 				badCommand = true
@@ -99,7 +141,8 @@ func test_cli(eng *wrappereng.WrapperEngine) {
 
 			cms := eng.GetCMS(user, key)
 			if cms == nil {
-				cms = cmsketch.New(0.1, 0.1)
+				fmt.Println(key, "not found.")
+				continue
 			}
 			cms.Insert([]byte(val))
 			eng.PutCMS(user, key, *cms)
