@@ -25,6 +25,7 @@ type HLL struct {
 }
 
 // Returns a pointer to a new HLL object.
+// precision: [4, 16]
 func New(precision int) *HLL {
 	if precision < HLL_MIN_PRECISION || precision > HLL_MAX_PRECISION {
 		errMsg := fmt.Sprint("precision must be between ", HLL_MIN_PRECISION, " and ", HLL_MAX_PRECISION, ", but ", precision, " was given.")

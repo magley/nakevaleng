@@ -129,6 +129,7 @@ func (wal *WAL) Append(rec record.Record) {
 // When the buffer is full, it will be flushed.
 func (wal *WAL) BufferedAppend(rec record.Record) {
 	wal.appendingBuffer = append(wal.appendingBuffer, rec)
+	fmt.Println("[DBG]\t[WAL] Inserted", string(rec.Key))
 	if len(wal.appendingBuffer) == wal.appendingBufferCapacity {
 		wal.FlushBuffer()
 	}
@@ -138,8 +139,10 @@ func (wal *WAL) BufferedAppend(rec record.Record) {
 // Depending on the size of the buffer and the fullness of the last segment,
 // FlushBuffer can cause the creation of new segments.
 func (wal *WAL) FlushBuffer() {
+	fmt.Println("[DBG]\t[WAL] Flushing")
 	for len(wal.appendingBuffer) != 0 {
 		if wal.lastSegmentNumOfRecords == wal.maxRecordsInSegment {
+			fmt.Println("[DBG]\t[WAL] Created new segment")
 			wal.addSegment() // Append is now operating on the new last segment
 		}
 
@@ -315,11 +318,14 @@ func (wal *WAL) DeleteOldSegments() {
 		return
 	}
 
+	fmt.Println("[DBG]\t[WAL] Removing old segments")
+
 	maxIndex := len(wal.segmentPaths) - wal.lowWaterMarkIndex
 
 	segmentsForDeletion := wal.segmentPaths[:maxIndex]
 	for _, segmentPath := range segmentsForDeletion {
 		err := os.Remove(segmentPath)
+		fmt.Println("[DBG]\t[WAL] Removed", segmentPath)
 		if err != nil {
 			panic(err)
 		}

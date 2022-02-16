@@ -3,6 +3,7 @@ package lsmtree
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"nakevaleng/core/record"
 	"nakevaleng/core/sstable"
 	"nakevaleng/ds/merkletree"
@@ -41,6 +42,8 @@ func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_M
 	if level <= 0 {
 		return
 	}
+
+	fmt.Println("[DBG]\t[LSM] Compaction lvl", level)
 
 	// Get all data tables for this level.
 
@@ -82,18 +85,6 @@ func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_M
 		os.Remove(filename.Table(path, dbname, level, i, filename.TypeSummary))
 		os.Remove(filename.Table(path, dbname, level, i, filename.TypeMetadata))
 	}
-
-	// Debug output
-
-	/*
-		s := fmt.Sprintf("Merged level %d (", level)
-		for _, fn := range filenames {
-			_, _, r, _ := filename.Query(fn)
-			s += fmt.Sprintf("%d, ", r)
-		}
-		s += ") to " + outDataFname
-		fmt.Println(s)
-	*/
 
 	// Chaining (won't do anything if next level doesn't need compaction yet).
 

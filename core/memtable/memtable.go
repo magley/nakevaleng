@@ -1,6 +1,7 @@
 package memtable
 
 import (
+	"fmt"
 	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
@@ -33,13 +34,24 @@ func New(conf coreconf.CoreConfig) *Memtable {
 // does not grow in size.
 // There is no automatic flushing. Check with ShouldFlush() and invoke the operation with Flush().
 func (mt *Memtable) Add(rec record.Record) bool {
-	newElement := mt.sl.Write(rec)
-
-	if newElement {
-		mt.memusage += rec.TotalSize()
+	oldRecordSize := uint64(0)
+	{
+		node := mt.sl.Find(rec.Key)
+		if node != nil {
+			oldRecordSize = uint64(node.Data.TotalSize())
+		}
 	}
 
-	return newElement
+	isNewElement := mt.sl.Write(rec)
+	newRecordSize := rec.TotalSize()
+
+	if newRecordSize > oldRecordSize {
+		mt.memusage += newRecordSize - oldRecordSize
+	} else {
+		mt.memusage += oldRecordSize - newRecordSize
+	}
+
+	return isNewElement
 }
 
 // ShouldFlush returns true if the memtable is ready to be flushed into an sstable, as determined by
@@ -68,6 +80,7 @@ func (mt *Memtable) Find(key []byte) (record.Record, bool) {
 
 // Flush the memtable to disk, forming an SSTable.
 func (mt *Memtable) Flush() {
+	fmt.Println("[DBG]\t[Memtable] Flushing")
 	newRun := filename.GetLastRun(mt.conf.Path, mt.conf.DBName, 1) + 1
 	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.sl)
 	mt.sl.Clear()

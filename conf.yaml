@@ -13,6 +13,6 @@ lsm_run_max: 4
 token_bucket_tokens: 100
 token_bucket_interval: 1
 wal_max_recs_in_seg: 5
-wal_lwm_idx: 2
+wal_lwm_idx: 0
 wal_buffer_capacity: 5
 internal_start: $
