@@ -10,7 +10,7 @@ import (
 )
 
 type Memtable struct {
-	capacity int
+	conf     coreconf.CoreConfig
 	skiplist *skiplist.Skiplist
 }
 
@@ -19,7 +19,7 @@ func New(conf coreconf.CoreConfig) *Memtable {
 	skiplist := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
 	return &Memtable{
-		capacity: conf.MemtableCapacity,
+		conf:     conf,
 		skiplist: skiplist,
 	}
 }
@@ -30,7 +30,7 @@ func New(conf coreconf.CoreConfig) *Memtable {
 func (memtable *Memtable) Add(rec record.Record) bool {
 	memtable.skiplist.Write(rec)
 
-	return memtable.skiplist.Count == memtable.capacity
+	return memtable.skiplist.Count == memtable.conf.MemtableCapacity
 }
 
 // Remove a record with the given key from the memtable. Note that "removing" just means
@@ -51,9 +51,9 @@ func (memtable *Memtable) Find(key string) (record.Record, bool) {
 }
 
 // Flushes the memtable to disk, forming an SSTable.
-func (memtable *Memtable) Flush(path, dbname string, summaryPageSize, lsmLvlMax, lsmRunMax int) {
-	newRun := filename.GetLastRun(path, dbname, 1) + 1
-	sstable.MakeTable(path, dbname, summaryPageSize, 1, newRun, memtable.skiplist)
-	memtable.skiplist.Clear()
-	lsmtree.Compact(path, dbname, summaryPageSize, 1, lsmLvlMax, lsmRunMax)
+func (mt *Memtable) Flush() {
+	newRun := filename.GetLastRun(mt.conf.Path, mt.conf.DBName, 1) + 1
+	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.skiplist)
+	mt.skiplist.Clear()
+	lsmtree.Compact(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, mt.conf.LsmLvlMax, mt.conf.LsmRunMax)
 }
