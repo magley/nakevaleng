@@ -5,4 +5,5 @@ general data structures
 - count min sketch
 - merkle tree
 - token bucket
+- hyperloglog
 ```
