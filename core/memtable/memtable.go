@@ -44,10 +44,9 @@ func (memtable *Memtable) Remove(key string) {
 	memtable.skiplist.Remove([]byte(key))
 }
 
-// Find a record with the given key in the memtable. Note that records that have the tombstone bit
-// set are not possible candidates for returning.
+// Find a record with the given key in the memtable.
 func (memtable *Memtable) Find(key string) (record.Record, bool) {
-	slNode := memtable.skiplist.Find([]byte(key), true)
+	slNode := memtable.skiplist.Find([]byte(key), false)
 
 	if slNode != nil {
 		return slNode.Data, true
