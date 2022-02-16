@@ -7,4 +7,5 @@ nakevaleng core files
 - lsmtree
 - lru
 - wal
+- memtable
 ```
