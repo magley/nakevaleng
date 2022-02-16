@@ -156,7 +156,7 @@ func search(key string, cache *lru.LRU, skipli *skiplist.Skiplist, tb *tokenbuck
 
 	// Memtable, sort of
 
-	n := skipli.Find([]byte(key), true)
+	n := skipli.Find([]byte(key))
 	if n != nil {
 		nRec := n.Data
 		cache.Set(nRec)

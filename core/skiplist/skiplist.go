@@ -111,7 +111,7 @@ func (skiplist *Skiplist) Write(rec record.Record) bool {
 // that by "mark as removed" is meant that the Record stored inside the node is modified by marking
 // its tombstone. skiplist change only effects the status of the Record instance inside the Skiplist.
 func (skiplist *Skiplist) Remove(key []byte) {
-	nodeToRemove := skiplist.Find(key, true)
+	nodeToRemove := skiplist.Find(key)
 	if nodeToRemove != nil {
 		nodeToRemove.Data.Status |= record.RECORD_TOMBSTONE_REMOVED
 	}
@@ -119,9 +119,8 @@ func (skiplist *Skiplist) Remove(key []byte) {
 
 // Find traverses the Skiplist, looking for a node with the given key.
 // 	key             Key to search for
-//	ignoreDeleted   when true, if a node is found but marked with a tombstone, function returns nil
 //	returns         A pointer to the node, or nil if not found
-func (skiplist Skiplist) Find(key []byte, ignoreDeleted bool) *SkiplistNode {
+func (skiplist Skiplist) Find(key []byte) *SkiplistNode {
 	node := skiplist.Header
 
 	// Go from top to bottom level, and find the node with the greatest key less than 'key'.
@@ -135,9 +134,6 @@ func (skiplist Skiplist) Find(key []byte, ignoreDeleted bool) *SkiplistNode {
 	node = node.Next[0]
 
 	if node == nil || bytes.Compare(key, node.Data.Key) != 0 {
-		return nil
-	}
-	if ignoreDeleted && node.Data.IsDeleted() {
 		return nil
 	}
 	return node
