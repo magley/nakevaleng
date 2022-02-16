@@ -1,11 +1,11 @@
 package memtable
 
 import (
-	"fmt"
 	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
+	coreconf "nakevaleng/engine/core-config"
 	"nakevaleng/util/filename"
 )
 
@@ -15,16 +15,11 @@ type Memtable struct {
 }
 
 // Returns a pointer to a new Memtable object.
-func New(capacity, slLevel, slLevelMax int) *Memtable {
-	if capacity < 0 {
-		errMsg := fmt.Sprint("capacity must be a positive number, but ", capacity, " was given.")
-		panic(errMsg)
-	}
-
-	skiplist := skiplist.New(slLevel, slLevelMax)
+func New(conf coreconf.CoreConfig) *Memtable {
+	skiplist := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
 	return &Memtable{
-		capacity: capacity,
+		capacity: conf.MemtableCapacity,
 		skiplist: skiplist,
 	}
 }
