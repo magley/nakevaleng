@@ -9,26 +9,40 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	_FLUSH_CAPACITY  = 1 << 0
+	_FLUSH_THRESHOLD = 1 << 1
+)
+
 type CoreConfig struct {
 	Path    string `yaml:"path"`
 	WalPath string `yaml:"wal_path"`
 	DBName  string `yaml:"db_name"`
 
-	SkiplistLevel       int    `yaml:"skiplist_level"`
-	SkiplistLevelMax    int    `yaml:"skiplist_level_max"`
-	MemtableCapacity    int    `yaml:"memtable_capacity"`
-	MemtableThreshold   string `yaml:"memtable_threshold"`
-	CacheCapacity       int    `yaml:"cache_capacity"`
-	SummaryPageSize     int    `yaml:"summary_page_size"`
-	LsmLvlMax           int    `yaml:"lsm_lvl_max"`
-	LsmRunMax           int    `yaml:"lsm_run_max"`
-	TokenBucketTokens   int    `yaml:"token_bucket_tokens"`
-	TokenBucketInterval int64  `yaml:"token_bucket_interval"`
-	WalMaxRecsInSeg     int    `yaml:"wal_max_recs_in_seg"`
-	WalLwmIdx           int    `yaml:"wal_lwm_idx"`
-	WalBufferCapacity   int    `yaml:"wal_buffer_capacity"`
+	SkiplistLevel         int    `yaml:"skiplist_level"`
+	SkiplistLevelMax      int    `yaml:"skiplist_level_max"`
+	MemtableCapacity      int    `yaml:"memtable_capacity"`
+	MemtableThreshold     string `yaml:"memtable_threshold"`
+	MemtableFlushStrategy int    `yaml:"memtable_flush_strategy"`
+	CacheCapacity         int    `yaml:"cache_capacity"`
+	SummaryPageSize       int    `yaml:"summary_page_size"`
+	LsmLvlMax             int    `yaml:"lsm_lvl_max"`
+	LsmRunMax             int    `yaml:"lsm_run_max"`
+	TokenBucketTokens     int    `yaml:"token_bucket_tokens"`
+	TokenBucketInterval   int64  `yaml:"token_bucket_interval"`
+	WalMaxRecsInSeg       int    `yaml:"wal_max_recs_in_seg"`
+	WalLwmIdx             int    `yaml:"wal_lwm_idx"`
+	WalBufferCapacity     int    `yaml:"wal_buffer_capacity"`
 
 	InternalStart string `yaml:"internal_start"`
+}
+
+func (cfg CoreConfig) ShouldFlushByCapacity() bool {
+	return (cfg.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
+}
+
+func (cfg CoreConfig) ShouldFlushByThreshold() bool {
+	return (cfg.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
 }
 
 func getDefault() CoreConfig {
@@ -40,6 +54,7 @@ func getDefault() CoreConfig {
 	config.SkiplistLevelMax = 5
 	config.MemtableCapacity = 10
 	config.MemtableThreshold = "2 KB" // The space is important!
+	config.MemtableFlushStrategy = _FLUSH_CAPACITY | _FLUSH_THRESHOLD
 	config.CacheCapacity = 5
 	config.SummaryPageSize = 3
 	config.LsmLvlMax = 4
@@ -65,6 +80,7 @@ func LoadConfig(filePath string) CoreConfig {
 			log.Println("Config file at", filePath, "is not valid. Using defaults. Error is:\n", err)
 		}
 	}
+	config.Dump(filePath)
 	return config
 }
 

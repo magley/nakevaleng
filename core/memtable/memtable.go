@@ -37,7 +37,8 @@ func (mt *Memtable) Add(rec record.Record) bool {
 	mt.memusage += rec.TotalSize()
 
 	fmt.Println(mt.memusage, mt.threshold)
-	return (mt.sl.Count == mt.conf.MemtableCapacity) || (mt.memusage >= mt.threshold)
+	return (mt.conf.ShouldFlushByCapacity() && mt.sl.Count == mt.conf.MemtableCapacity) ||
+		(mt.conf.ShouldFlushByThreshold() && mt.memusage >= mt.threshold)
 }
 
 // Remove a record with the given key from the memtable. Note that "removing" just means

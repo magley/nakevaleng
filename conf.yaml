@@ -4,6 +4,8 @@ db_name: nakevaleng
 skiplist_level: 3
 skiplist_level_max: 5
 memtable_capacity: 10
+memtable_threshold: 2 KB
+memtable_flush_strategy: 3
 cache_capacity: 5
 summary_page_size: 3
 lsm_lvl_max: 4
