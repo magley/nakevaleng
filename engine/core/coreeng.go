@@ -220,6 +220,7 @@ func (cen CoreEngine) put(rec record.Record) {
 		cen.sl.Clear()
 		lsmtree.Compact(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, cen.conf.LsmLvlMax, cen.conf.LsmRunMax)
 		// safe to delete old segments now since everything is on disk
+		cen.wal.FlushBuffer()
 		cen.wal.DeleteOldSegments()
 	}
 }
