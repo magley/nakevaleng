@@ -3,15 +3,14 @@ package coreeng
 import (
 	"bufio"
 	"fmt"
+	"nakevaleng/core/memtable"
 	"nakevaleng/core/wal"
 	coreconf "nakevaleng/engine/core-config"
 	"os"
 	"time"
 
 	"nakevaleng/core/lru"
-	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
-	"nakevaleng/core/skiplist"
 	"nakevaleng/core/sstable"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/tokenbucket"
@@ -19,10 +18,10 @@ import (
 )
 
 type CoreEngine struct {
-	conf  coreconf.CoreConfig
-	cache *lru.LRU
-	sl    *skiplist.Skiplist
-	wal   *wal.WAL
+	conf     coreconf.CoreConfig
+	cache    *lru.LRU
+	memtable *memtable.Memtable
+	wal      *wal.WAL
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
@@ -33,7 +32,7 @@ func New(conf coreconf.CoreConfig) *CoreEngine {
 	return &CoreEngine{
 		conf,
 		lru.New(conf.CacheCapacity),
-		skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax),
+		memtable.New(conf),
 		wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg,
 			conf.WalLwmIdx, conf.WalBufferCapacity),
 	}
@@ -72,17 +71,13 @@ func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 
 // Get without checking legality or getting token buckets
 func (cen CoreEngine) get(key []byte) (record.Record, bool) {
-	// Memtable, sort of
-
-	n := cen.sl.Find(key)
-	if n != nil {
-		nRec := n.Data
-		cen.cache.Set(nRec)
-		//fmt.Println("[found in skiplist]", nRec)
-		if nRec.IsDeleted() {
+	rec, exists := cen.memtable.Find(key)
+	if exists {
+		cen.cache.Set(rec)
+		if rec.IsDeleted() {
 			return record.Record{}, false
 		}
-		return nRec, true
+		return rec, true
 	}
 
 	// Cache
@@ -212,13 +207,10 @@ func (cen CoreEngine) put(rec record.Record) {
 		cen.wal.BufferedAppend(rec)
 	}
 	cen.cache.Set(rec)
-	cen.sl.Write(rec)
+	isFull := cen.memtable.Add(rec)
 
-	if cen.sl.Count > cen.conf.MemtableCapacity {
-		newRun := filename.GetLastRun(cen.conf.Path, cen.conf.DBName, 1) + 1
-		sstable.MakeTable(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, newRun, cen.sl)
-		cen.sl.Clear()
-		lsmtree.Compact(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, cen.conf.LsmLvlMax, cen.conf.LsmRunMax)
+	if isFull {
+		cen.memtable.Flush()
 		// safe to delete old segments now since everything is on disk
 		cen.FlushWALBuffer()
 		cen.wal.DeleteOldSegments()

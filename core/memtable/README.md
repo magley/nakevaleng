@@ -6,10 +6,8 @@ memtable
 
 ```go
 
-mtSize := 5
-slLevel := 3
-slLevelMax := 5
-memtable := memtable.New(mtSize, slLevel, slLevelMax)
+conf := coreconf.LoadConfig("config.yaml")
+memtable := memtable.New(conf)
 
 rec1 := record.NewFromString("key01", "val01")
 rec2 := record.NewFromString("key02", "val02")
@@ -29,13 +27,7 @@ nrec, isPresent = memtable.Find("key12") // will return an empty record and fals
 
 isFull := memtable.Add(rec5) // will return true
 if isFull {
-    path := "data/"
-    dbname := "nakevaleng"
-    summaryPageSize := 3
-    lsmLvlMax := 4
-    lsmRunMax := 4
-
-    memtable.Flush(path, dbname, summaryPageSize, lsmLvlMax, lsmRunMax)
+    memtable.Flush()
 
     // Assuming a WAL is present as well
     wal.DeleteOldSegments()
