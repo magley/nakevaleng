@@ -20,9 +20,9 @@ import (
 
 type CoreEngine struct {
 	conf  coreconf.CoreConfig
-	cache lru.LRU
-	sl    skiplist.Skiplist
-	wal   wal.WAL
+	cache *lru.LRU
+	sl    *skiplist.Skiplist
+	wal   *wal.WAL
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
@@ -32,9 +32,9 @@ func New(conf coreconf.CoreConfig) *CoreEngine {
 	}
 	return &CoreEngine{
 		conf,
-		*lru.New(conf.CacheCapacity),
+		lru.New(conf.CacheCapacity),
 		skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax),
-		*wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg,
+		wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg,
 			conf.WalLwmIdx, conf.WalBufferCapacity),
 	}
 }
@@ -216,7 +216,7 @@ func (cen CoreEngine) put(rec record.Record) {
 
 	if cen.sl.Count > cen.conf.MemtableCapacity {
 		newRun := filename.GetLastRun(cen.conf.Path, cen.conf.DBName, 1) + 1
-		sstable.MakeTable(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, newRun, &cen.sl)
+		sstable.MakeTable(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, newRun, cen.sl)
 		cen.sl.Clear()
 		lsmtree.Compact(cen.conf.Path, cen.conf.DBName, cen.conf.SummaryPageSize, 1, cen.conf.LsmLvlMax, cen.conf.LsmRunMax)
 		// safe to delete old segments now since everything is on disk

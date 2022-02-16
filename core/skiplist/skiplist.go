@@ -17,7 +17,7 @@ type Skiplist struct {
 // New creates an empty Skiplist with height 'level'.
 // 	level	Number of available levels in range [0, level).
 // Throws an error if specified height is greater than the maximium allowed height or less than 1.
-func New(level int, levelmax int) Skiplist {
+func New(level int, levelmax int) *Skiplist {
 	if level > levelmax {
 		errMsg := fmt.Sprint("Maximum skiplist height is", levelmax, ", but", level, "was given.")
 		panic(errMsg)
@@ -30,7 +30,7 @@ func New(level int, levelmax int) Skiplist {
 
 	header := newNodeEmpty(levelmax)
 
-	return Skiplist{
+	return &Skiplist{
 		Level:    level,
 		LevelMax: levelmax,
 		Header:   &header,
