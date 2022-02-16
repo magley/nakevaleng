@@ -1,6 +1,7 @@
 package memtable
 
 import (
+	"fmt"
 	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
@@ -10,8 +11,10 @@ import (
 )
 
 type Memtable struct {
-	conf coreconf.CoreConfig
-	sl   *skiplist.Skiplist
+	conf      coreconf.CoreConfig
+	memusage  uint64
+	threshold uint64
+	sl        *skiplist.Skiplist
 }
 
 // Returns a pointer to a new Memtable object.
@@ -19,8 +22,10 @@ func New(conf coreconf.CoreConfig) *Memtable {
 	sl := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
 	return &Memtable{
-		conf: conf,
-		sl:   sl,
+		conf:      conf,
+		memusage:  uint64(0),
+		threshold: conf.MemtableThresholdBytes(),
+		sl:        sl,
 	}
 }
 
@@ -29,8 +34,11 @@ func New(conf coreconf.CoreConfig) *Memtable {
 // with no change to the memtable size.
 func (mt *Memtable) Add(rec record.Record) bool {
 	mt.sl.Write(rec)
+	mt.memusage += rec.TotalSize()
 
-	return mt.sl.Count == mt.conf.MemtableCapacity
+	fmt.Println(mt.memusage, mt.threshold)
+	return (mt.conf.ShouldFlushByCapacity() && mt.sl.Count == mt.conf.MemtableCapacity) ||
+		(mt.conf.ShouldFlushByThreshold() && mt.memusage >= mt.threshold)
 }
 
 // Remove a record with the given key from the memtable. Note that "removing" just means
@@ -55,5 +63,6 @@ func (mt *Memtable) Flush() {
 	newRun := filename.GetLastRun(mt.conf.Path, mt.conf.DBName, 1) + 1
 	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.sl)
 	mt.sl.Clear()
+	mt.memusage = 0
 	lsmtree.Compact(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, mt.conf.LsmLvlMax, mt.conf.LsmRunMax)
 }
