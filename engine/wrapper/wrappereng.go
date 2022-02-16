@@ -48,6 +48,22 @@ func (wen WrapperEngine) PutHLL(user, key string, hll hll.HLL) bool {
 	return wen.PutTyped(user, key, hll.EncodeToBytes(), TypeHyperLogLog)
 }
 
+func (wen WrapperEngine) GetCMS(user, key string) *cmsketch.CountMinSketch {
+	rec, found := wen.Get(user, key)
+	if !found || rec.TypeInfo != TypeCountMinSketch {
+		return nil
+	}
+	return cmsketch.DecodeFromBytes(rec.Value)
+}
+
+func (wen WrapperEngine) GetHLL(user, key string) *hll.HLL {
+	rec, found := wen.Get(user, key)
+	if !found || rec.TypeInfo != TypeHyperLogLog {
+		return nil
+	}
+	return hll.DecodeFromBytes(rec.Value)
+}
+
 func main() {
 	engine := New(coreconf.LoadConfig("conf.yaml"))
 	test(engine)
