@@ -41,7 +41,7 @@ func main0() {
 	tb := tokenbucket.New(TOKENBUCKET_TOKENS, TOKENBUCKET_INTERVAL)
 	wal := writeaheadlog.New(walPath, dbname, WAL_MAX_RECS_IN_SEG, WAL_LWM_IDX, WAL_BUFFER_CAPACITY)
 
-	insert01(cache, &skipli, tb, wal)
+	insert01(cache, skipli, tb, wal)
 
 	// Search
 
@@ -69,7 +69,7 @@ func main0() {
 		"key_834",
 	}
 	for _, key := range keysToSearch {
-		r, found := search(key, cache, &skipli, tb)
+		r, found := search(key, cache, skipli, tb)
 		if found {
 			fmt.Printf("%s\n", r.String())
 		} else {

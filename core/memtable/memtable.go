@@ -11,7 +11,7 @@ import (
 
 type Memtable struct {
 	capacity int
-	skiplist skiplist.Skiplist
+	skiplist *skiplist.Skiplist
 }
 
 // Returns a pointer to a new Memtable object.
@@ -53,7 +53,7 @@ func (memtable *Memtable) Find(key string) (record.Record, bool) {
 // Flushes the memtable to disk, forming an SSTable.
 func (memtable *Memtable) Flush(path, dbname string, summaryPageSize, lsmLvlMax, lsmRunMax int) {
 	newRun := filename.GetLastRun(path, dbname, 1) + 1
-	sstable.MakeTable(path, dbname, summaryPageSize, 1, newRun, &memtable.skiplist)
+	sstable.MakeTable(path, dbname, summaryPageSize, 1, newRun, memtable.skiplist)
 	memtable.skiplist.Clear()
 	lsmtree.Compact(path, dbname, summaryPageSize, 1, lsmLvlMax, lsmRunMax)
 }
