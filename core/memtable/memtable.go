@@ -33,11 +33,18 @@ func New(conf coreconf.CoreConfig) *Memtable {
 // does not grow in size.
 // There is no automatic flushing. Check with ShouldFlush() and invoke the operation with Flush().
 func (mt *Memtable) Add(rec record.Record) bool {
+	// is there already an element with this key in the memtable?
+	oldRec, isPresent := mt.Find(rec.Key)
+
+	// if there is, subtract its size from memusage...
+	if isPresent {
+		mt.memusage -= oldRec.TotalSize()
+	}
+
 	newElement := mt.sl.Write(rec)
 
-	if newElement {
-		mt.memusage += rec.TotalSize()
-	}
+	// ...and add the new element's size
+	mt.memusage += rec.TotalSize()
 
 	return newElement
 }
