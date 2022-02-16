@@ -1,4 +1,4 @@
-package main
+package wrappertest
 
 import (
 	"encoding/csv"
