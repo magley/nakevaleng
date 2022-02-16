@@ -41,7 +41,7 @@ func (memtable *Memtable) Remove(key string) {
 
 // Find a record with the given key in the memtable.
 func (memtable *Memtable) Find(key string) (record.Record, bool) {
-	slNode := memtable.skiplist.Find([]byte(key), false)
+	slNode := memtable.skiplist.Find([]byte(key))
 
 	if slNode != nil {
 		return slNode.Data, true

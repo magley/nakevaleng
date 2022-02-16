@@ -74,7 +74,7 @@ func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 	// Memtable, sort of
 
-	n := cen.sl.Find(key, false)
+	n := cen.sl.Find(key)
 	if n != nil {
 		nRec := n.Data
 		cen.cache.Set(nRec)
