@@ -35,14 +35,11 @@ func New(conf coreconf.CoreConfig) *Memtable {
 // There is no automatic flushing. Check with ShouldFlush() and invoke the operation with Flush().
 func (mt *Memtable) Add(rec record.Record) bool {
 	oldRecordSize := uint64(0)
-	{
-		node := mt.sl.Find(rec.Key)
-		if node != nil {
-			oldRecordSize = uint64(node.Data.TotalSize())
-		}
+	oldNode, isNewElement := mt.sl.Write(rec)
+	if oldNode != nil {
+		oldRecordSize = uint64(oldNode.Data.TotalSize())
 	}
 
-	isNewElement := mt.sl.Write(rec)
 	newRecordSize := rec.TotalSize()
 
 	// It's uint64, so it's either this or converting
