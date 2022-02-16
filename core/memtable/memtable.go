@@ -35,13 +35,13 @@ func (memtable *Memtable) Add(rec record.Record) bool {
 
 // Remove a record with the given key from the memtable. Note that "removing" just means
 // setting the tombstone bit (logical deletion).
-func (memtable *Memtable) Remove(key string) {
-	memtable.skiplist.Remove([]byte(key))
+func (memtable *Memtable) Remove(key []byte) {
+	memtable.skiplist.Remove(key)
 }
 
 // Find a record with the given key in the memtable.
-func (memtable *Memtable) Find(key string) (record.Record, bool) {
-	slNode := memtable.skiplist.Find([]byte(key), false)
+func (memtable *Memtable) Find(key []byte) (record.Record, bool) {
+	slNode := memtable.skiplist.Find(key, false)
 
 	if slNode != nil {
 		return slNode.Data, true
