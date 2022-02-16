@@ -45,7 +45,7 @@ func (cfg CoreConfig) ShouldFlushByThreshold() bool {
 	return (cfg.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
 }
 
-func getDefault() CoreConfig {
+func GetDefault() CoreConfig {
 	var config CoreConfig
 	config.Path = "data/"
 	config.WalPath = "data/log/"
@@ -69,7 +69,7 @@ func getDefault() CoreConfig {
 }
 
 func LoadConfig(filePath string) CoreConfig {
-	config := getDefault()
+	config := GetDefault()
 
 	configData, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -80,7 +80,6 @@ func LoadConfig(filePath string) CoreConfig {
 			log.Println("Config file at", filePath, "is not valid. Using defaults. Error is:\n", err)
 		}
 	}
-	config.Dump(filePath)
 	return config
 }
 
@@ -99,7 +98,7 @@ func (cfg *CoreConfig) MemtableThresholdBytes() uint64 {
 	// Parse
 	parts := strings.Split(cfg.MemtableThreshold, " ")
 	if len(parts) != 2 {
-		cfg.MemtableThreshold = getDefault().MemtableThreshold
+		cfg.MemtableThreshold = GetDefault().MemtableThreshold
 		return cfg.MemtableThresholdBytes()
 	}
 
@@ -120,7 +119,7 @@ func (cfg *CoreConfig) MemtableThresholdBytes() uint64 {
 	// Bad unit
 	exp, ok := exponent[unit]
 	if !ok {
-		cfg.MemtableThreshold = getDefault().MemtableThreshold
+		cfg.MemtableThreshold = GetDefault().MemtableThreshold
 		return cfg.MemtableThresholdBytes()
 	}
 
