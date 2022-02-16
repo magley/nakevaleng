@@ -290,6 +290,9 @@ func test(engine CoreEngine) {
 	engine.Delete([]byte(user), []byte("key_000"))
 	engine.Delete([]byte(user), []byte("key_114"))
 
+	// flush WAL
+	engine.FlushWALBuffer()
+
 	// Search
 
 	keysToSearch := []string{
