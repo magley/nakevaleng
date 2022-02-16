@@ -57,7 +57,7 @@ func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else
-		fmt.Println("ILLEGAL QUERY:", key)
+		//fmt.Println("ILLEGAL QUERY:", key)
 		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
@@ -185,7 +185,7 @@ func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
-		fmt.Println("ILLEGAL QUERY:", key)
+		//fmt.Println("ILLEGAL QUERY:", key)
 		return false
 	}
 	tb := cen.getTokenBucket(user)
@@ -207,9 +207,13 @@ func (cen CoreEngine) put(rec record.Record) {
 		cen.wal.BufferedAppend(rec)
 	}
 	cen.cache.Set(rec)
-	isFull := cen.mt.Add(rec)
+	isNewElement := cen.mt.Add(rec)
 
-	if isFull {
+	if isNewElement {
+		fmt.Printf("\tWrote %d bytes for %s\n", rec.TotalSize(), string(rec.Key))
+	}
+
+	if cen.mt.ShouldFlush() {
 		cen.mt.Flush()
 		// safe to delete old segments now since everything is on disk
 		cen.FlushWALBuffer()
@@ -221,7 +225,7 @@ func (cen CoreEngine) Delete(user, key []byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
 		// todo might want to handle this somewhere else by returning err
-		fmt.Println("ILLEGAL QUERY:", key)
+		//fmt.Println("ILLEGAL QUERY:", key)
 		return false
 	}
 	tb := cen.getTokenBucket(user)
@@ -232,7 +236,6 @@ func (cen CoreEngine) Delete(user, key []byte) bool {
 	cen.putTokenBucket(user, tb)
 	rec, found := cen.get(key)
 	if !found {
-		fmt.Println("CAN'T DELETE. NO SUCH RECORD WITH KEY:", key)
 		return false
 	}
 	// todo remove two below

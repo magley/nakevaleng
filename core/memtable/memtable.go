@@ -1,7 +1,6 @@
 package memtable
 
 import (
-	"fmt"
 	"nakevaleng/core/lsmtree"
 	"nakevaleng/core/record"
 	"nakevaleng/core/skiplist"
@@ -29,14 +28,23 @@ func New(conf coreconf.CoreConfig) *Memtable {
 	}
 }
 
-// Add a record to the memtable. Returns whether or not the memtable is now full, making flushing necessary.
-// Note that if a record with the same key already exists in the memtable, it gets updated with the new value,
-// with no change to the memtable size.
+// Add a record to the memtable.
+// Returns whether or not the element is a new element in the memtable. In that case, the memtable
+// does not grow in size.
+// There is no automatic flushing. Check with ShouldFlush() and invoke the operation with Flush().
 func (mt *Memtable) Add(rec record.Record) bool {
-	mt.sl.Write(rec)
-	mt.memusage += rec.TotalSize()
+	newElement := mt.sl.Write(rec)
 
-	fmt.Println(mt.memusage, mt.threshold)
+	if newElement {
+		mt.memusage += rec.TotalSize()
+	}
+
+	return newElement
+}
+
+// ShouldFlush returns true if the memtable is ready to be flushed into an sstable, as determined by
+// the currently set MemtableFlushStrategy.
+func (mt Memtable) ShouldFlush() bool {
 	return (mt.conf.ShouldFlushByCapacity() && mt.sl.Count == mt.conf.MemtableCapacity) ||
 		(mt.conf.ShouldFlushByThreshold() && mt.memusage >= mt.threshold)
 }
