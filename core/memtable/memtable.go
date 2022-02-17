@@ -80,8 +80,24 @@ func (mt *Memtable) Find(key []byte) (record.Record, bool) {
 func (mt *Memtable) Flush() {
 	fmt.Println("[DBG]\t[Memtable] Flushing")
 	newRun := filename.GetLastRun(mt.conf.Path, mt.conf.DBName, 1) + 1
-	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.sl)
+	sstable.MakeTable(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, newRun, mt.NewIterator())
 	mt.sl.Clear()
 	mt.memusage = 0
 	lsmtree.Compact(mt.conf.Path, mt.conf.DBName, mt.conf.SummaryPageSize, 1, mt.conf.LsmLvlMax, mt.conf.LsmRunMax)
+}
+
+// NewIterator returns an iterator to the sorted contents of a Memtable
+func (mt *Memtable) NewIterator() record.Iterator {
+	var rec record.Record
+	n := mt.sl.Header.Next[0]
+	return func() (record.Record, bool) {
+		if n != nil {
+			rec = n.Data
+			n = n.Next[0]
+			return rec, false
+		} else {
+			n = mt.sl.Header.Next[0]
+			return record.NewEmpty(), true
+		}
+	}
 }

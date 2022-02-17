@@ -2,7 +2,6 @@ package sstable
 
 import (
 	"nakevaleng/core/record"
-	"nakevaleng/core/skiplist"
 	"nakevaleng/ds/bloomfilter"
 	"nakevaleng/ds/merkletree"
 	"nakevaleng/util/filename"
@@ -11,24 +10,24 @@ import (
 	"os"
 )
 
-// MakeTable creates a new SSTable from the data given as a skiplist.
+// MakeTable creates a new SSTable from the data given in a Memtable through a record.Iterator.
 // You should only use this when flushing a Memtable to a level 1 SStable (minor compaction).
 // For all other cases (i.e. when major compaction happens), use MakeTableSecondaries().
-func MakeTable(path, dbname string, summaryPageSize, level, run int, list *skiplist.Skiplist) {
-	makeDataTable(path, dbname, level, run, list)
+func MakeTable(path, dbname string, summaryPageSize, level, run int, rit record.Iterator) {
+	makeDataTable(path, dbname, level, run, rit)
 	{
 		keycontexts := []record.KeyContext{}
-		for n := list.Header.Next[0]; n != nil; n = n.Next[0] {
+		for rec, last := rit(); !last; rec, last = rit() {
 			keycontexts = append(keycontexts, record.KeyContext{
-				Key:     n.Data.Key,
-				RecSize: n.Data.TotalSize(),
+				Key:     rec.Key,
+				RecSize: rec.TotalSize(),
 			})
 		}
 		makeIndexAndSummary(path, dbname, summaryPageSize, level, run, keycontexts)
 		makeFilter(path, dbname, level, run, keycontexts)
 	}
 
-	makeMetadata(path, dbname, level, run, list)
+	makeMetadata(path, dbname, level, run, rit)
 }
 
 // MakeTableSecondaries creates a new SSTable (except for the Data table) based on input parameters.
@@ -48,13 +47,11 @@ func makeFilter(path, dbname string, level, run int, keyctx []record.KeyContext)
 	bf.EncodeToFile(filename.Table(path, dbname, level, run, filename.TypeFilter))
 }
 
-func makeMetadata(path, dbname string, level, run int, list *skiplist.Skiplist) {
+func makeMetadata(path, dbname string, level, run int, rit record.Iterator) {
 	merkleNodes := make([]merkletree.MerkleNode, 0)
 	{
-		n := list.Header.Next[0]
-		for n != nil {
-			merkleNodes = append(merkleNodes, merkletree.NewLeaf(n.Data.Value))
-			n = n.Next[0]
+		for rec, last := rit(); !last; rec, last = rit() {
+			merkleNodes = append(merkleNodes, merkletree.NewLeaf(rec.Value))
 		}
 	}
 

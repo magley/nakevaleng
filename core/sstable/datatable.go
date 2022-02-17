@@ -2,7 +2,7 @@ package sstable
 
 import (
 	"bufio"
-	"nakevaleng/core/skiplist"
+	"nakevaleng/core/record"
 	"nakevaleng/util/filename"
 	"os"
 )
@@ -13,7 +13,7 @@ import (
 //	level   `lsm tree level this table belongs to`
 //	run     `ordinal number of the run on the given level for this table`
 //	list    `skiplist containing all data to read from when writing to the file`
-func makeDataTable(path string, dbname string, level int, run int, list *skiplist.Skiplist) {
+func makeDataTable(path string, dbname string, level int, run int, rit record.Iterator) {
 	fname := filename.Table(path, dbname, level, run, filename.TypeData)
 	f, err := os.Create(fname)
 	if err != nil {
@@ -23,9 +23,7 @@ func makeDataTable(path string, dbname string, level int, run int, list *skiplis
 	w := bufio.NewWriter(f)
 	defer w.Flush()
 
-	n := list.Header.Next[0]
-	for n != nil {
-		n.Data.Serialize(w)
-		n = n.Next[0]
+	for rec, last := rit(); !last; rec, last = rit() {
+		rec.Serialize(w)
 	}
 }
