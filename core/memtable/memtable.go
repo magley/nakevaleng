@@ -43,6 +43,7 @@ func (mt *Memtable) Add(rec record.Record) bool {
 	newRecordSize := rec.TotalSize()
 
 	// It's uint64, so it's either this or converting
+
 	if newRecordSize > oldRecordSize {
 		mt.memusage += newRecordSize - oldRecordSize
 	} else {

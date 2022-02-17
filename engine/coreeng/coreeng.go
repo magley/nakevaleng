@@ -25,7 +25,6 @@ type CoreEngine struct {
 }
 
 func New(conf coreconf.CoreConfig) *CoreEngine {
-	// todo remember to check others when implementing config here!!!
 	if len(conf.InternalStart) == 0 {
 		return nil
 	}
@@ -56,8 +55,6 @@ func (cen CoreEngine) IsLegal(key []byte) bool {
 func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 	legal := cen.IsLegal(key)
 	if !legal {
-		// todo might want to handle this somewhere else
-		//fmt.Println("ILLEGAL QUERY:", key)
 		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
@@ -150,14 +147,11 @@ func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 			rec.Deserialize(r)
 			f.Close()
 
-			// record is deleted, so don't return it
+			cen.cache.Set(rec) // Even if it's deleted, it might get searched for, so we cache it.
+
 			if rec.IsDeleted() {
-				//fmt.Println("[RESPECTING THE DEAD]", rec)
 				return record.Record{}, false
 			}
-
-			// todo should this be a few lines above for consistency?
-			cen.cache.Set(rec)
 			return rec, true
 		}
 	}
@@ -184,8 +178,6 @@ func (cen CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket
 func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
-		// todo might want to handle this somewhere else by returning err
-		//fmt.Println("ILLEGAL QUERY:", key)
 		return false
 	}
 	tb := cen.getTokenBucket(user)
@@ -201,21 +193,17 @@ func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 }
 
 func (cen CoreEngine) put(rec record.Record) {
-	// assume only TokenBuckets can be illegal for now, todo might want to change to TypeInfo
 	isTokenBucket := !cen.IsLegal(rec.Key)
 	if !isTokenBucket {
 		cen.wal.BufferedAppend(rec)
 	}
 	cen.cache.Set(rec)
-	isNewElement := cen.mt.Add(rec)
+	cen.mt.Add(rec)
 
-	if isNewElement {
-		fmt.Printf("\tWrote %d bytes for %s\n", rec.TotalSize(), string(rec.Key))
-	}
+	fmt.Printf("[DBG]\t[Memtable] Wrote %d bytes for %s\n", rec.TotalSize(), string(rec.Key))
 
 	if cen.mt.ShouldFlush() {
 		cen.mt.Flush()
-		// safe to delete old segments now since everything is on disk
 		cen.FlushWALBuffer()
 		cen.wal.DeleteOldSegments()
 	}

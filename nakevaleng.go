@@ -3,26 +3,22 @@ package main
 import (
 	"nakevaleng/engine/coreconf"
 	"nakevaleng/engine/wrappereng"
+	"nakevaleng/engine/wrappertest"
 )
 
 func main() {
 	eng := wrappereng.New(coreconf.LoadConfig("conf.yaml"))
-	test_memtable_threshold(&eng)
+	test_cli(&eng)
 }
 
-func test_memtable_threshold(eng *wrappereng.WrapperEngine) {
-	// 3 elements (way less than memtable capacity)
-	// But in total they take up 3000 B
-	// If memtable threshold is 2000 B, then a flush will happen.
-	// Token buckets are also written though.
-	// CMD output is written in memtable.go @ line 39
+func test_cli(eng *wrappereng.WrapperEngine) {
+	// To remove all the debug output that's written on the CLI, search for:
+	// fmt.Println("[DBG]\t
 
-	val1 := make([]byte, 1000)
-	val2 := make([]byte, 1000)
-	val3 := make([]byte, 1000)
 	user := "admin"
+	cli := wrappertest.NewCLI(user, eng)
 
-	eng.Put(user, "key1", val1)
-	eng.Put(user, "key2", val2)
-	eng.Put(user, "key3", val3)
+	for cli.IsRunning() {
+		cli.Next()
+	}
 }
