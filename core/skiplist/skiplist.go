@@ -47,8 +47,8 @@ func (skiplist *Skiplist) Clear() {
 }
 
 // Write writes the given record into the skiplist. If an element with the same key already exists,
-// it gets updated and false is returned. Otherwise, the element is inserted and true is returned.
-func (skiplist *Skiplist) Write(rec record.Record) bool {
+// returns a COPY of the old node and false. Otherwise it returns nil and true.
+func (skiplist *Skiplist) Write(rec record.Record) (*SkiplistNode, bool) {
 	node := skiplist.Header
 	update := make([]*SkiplistNode, skiplist.LevelMax) // A ptr to a level-i node that'll get relinked.
 
@@ -66,8 +66,9 @@ func (skiplist *Skiplist) Write(rec record.Record) bool {
 	// Node with given key already exists.
 
 	if !(node == nil || bytes.Compare(rec.Key, node.Data.Key) != 0) {
+		oldNode := &(*node)
 		node.Data = rec
-		return false
+		return oldNode, false
 	}
 
 	// Determine how many levels the new node will have.
@@ -104,7 +105,7 @@ func (skiplist *Skiplist) Write(rec record.Record) bool {
 	}
 
 	skiplist.Count += 1
-	return true
+	return nil, true
 }
 
 // Remove marks a node of given key as 'removed'. If the node doesn't exist, nothing happens. Note
