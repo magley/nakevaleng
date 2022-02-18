@@ -120,14 +120,15 @@ func LoadConfig(filePath string) (*CoreConfig, error) {
 }
 
 func (core *CoreConfig) validate() error {
-	_, err := os.Stat(core.Path)
-	if os.IsNotExist(err) {
-		err := fmt.Errorf("folder %s does not exist", core.Path)
+	err := os.MkdirAll(core.Path, 0777)
+	if err != nil {
+		err := fmt.Errorf("path \"%s\" is not valid", core.Path)
 		return err
 	}
-	_, err = os.Stat(core.WalPath)
-	if os.IsNotExist(err) {
-		err := fmt.Errorf("folder %s does not exist", core.WalPath)
+
+	err = os.MkdirAll(core.WalPath, 0777)
+	if err != nil {
+		err := fmt.Errorf("path \"%s\" is not valid", core.WalPath)
 		return err
 	}
 
