@@ -11,22 +11,23 @@ import (
 )
 
 type Memtable struct {
-	conf      coreconf.CoreConfig
+	conf      *coreconf.CoreConfig
 	memusage  uint64
 	threshold uint64
 	sl        *skiplist.Skiplist
 }
 
 // Returns a pointer to a new Memtable object.
-func New(conf coreconf.CoreConfig) *Memtable {
-	sl := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
+func New(conf *coreconf.CoreConfig) (*Memtable, error) {
+	// if conf is valid, this should never fail
+	sl, _ := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
 	return &Memtable{
 		conf:      conf,
 		memusage:  uint64(0),
 		threshold: conf.MemtableThresholdBytes(),
 		sl:        sl,
-	}
+	}, nil
 }
 
 // Add a record to the memtable.

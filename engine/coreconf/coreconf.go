@@ -3,6 +3,11 @@ package coreconf
 import (
 	"io/ioutil"
 	"log"
+	"nakevaleng/core/lru"
+	"nakevaleng/core/lsmtree"
+	"nakevaleng/core/skiplist"
+	"nakevaleng/core/wal"
+	"nakevaleng/ds/tokenbucket"
 	"strconv"
 	"strings"
 
@@ -12,6 +17,28 @@ import (
 const (
 	_FLUSH_CAPACITY  = 1 << 0
 	_FLUSH_THRESHOLD = 1 << 1
+)
+
+// default values
+const (
+	PATH                    = "data/"
+	WAL_PATH                = "data/log/"
+	DBNAME                  = "nakevaleng"
+	SKIPLIST_LVL            = 3
+	SKIPLIST_LVL_MAX        = 5
+	MEMTABLE_CAPACITY       = 10
+	MEMTABLE_THRESHOLD      = "2 KB" // The space is important!
+	MEMTABLE_FLUSH_STRATEGY = _FLUSH_CAPACITY | _FLUSH_THRESHOLD
+	CACHE_CAPACITY          = 5
+	SUMMARY_PAGE_SIZE       = 3
+	LSM_LVL_MAX             = 4
+	LSM_RUN_MAX             = 4
+	TOKENBUCKET_TOKENS      = 100
+	TOKENBUCKET_INTERVAL    = 1
+	WAL_MAX_RECS_IN_SEG     = 5
+	WAL_LWM_IDX             = 2
+	WAL_BUFFER_CAPACITY     = 5
+	INTERNAL_START          = "$"
 )
 
 type CoreConfig struct {
@@ -47,28 +74,28 @@ func (cfg CoreConfig) ShouldFlushByThreshold() bool {
 
 func GetDefault() CoreConfig {
 	var config CoreConfig
-	config.Path = "data/"
-	config.WalPath = "data/log/"
-	config.DBName = "nakevaleng"
-	config.SkiplistLevel = 3
-	config.SkiplistLevelMax = 5
-	config.MemtableCapacity = 10
-	config.MemtableThreshold = "2 KB" // The space is important!
-	config.MemtableFlushStrategy = _FLUSH_CAPACITY | _FLUSH_THRESHOLD
-	config.CacheCapacity = 5
-	config.SummaryPageSize = 3
-	config.LsmLvlMax = 4
-	config.LsmRunMax = 4
-	config.TokenBucketTokens = 100
-	config.TokenBucketInterval = 1
-	config.WalMaxRecsInSeg = 5
-	config.WalLwmIdx = 2
-	config.WalBufferCapacity = 5
-	config.InternalStart = "$"
+	config.Path = PATH
+	config.WalPath = WAL_PATH
+	config.DBName = DBNAME
+	config.SkiplistLevel = SKIPLIST_LVL
+	config.SkiplistLevelMax = SKIPLIST_LVL_MAX
+	config.MemtableCapacity = MEMTABLE_CAPACITY
+	config.MemtableThreshold = MEMTABLE_THRESHOLD
+	config.MemtableFlushStrategy = MEMTABLE_FLUSH_STRATEGY
+	config.CacheCapacity = CACHE_CAPACITY
+	config.SummaryPageSize = SUMMARY_PAGE_SIZE
+	config.LsmLvlMax = LSM_LVL_MAX
+	config.LsmRunMax = LSM_RUN_MAX
+	config.TokenBucketTokens = TOKENBUCKET_TOKENS
+	config.TokenBucketInterval = TOKENBUCKET_INTERVAL
+	config.WalMaxRecsInSeg = WAL_MAX_RECS_IN_SEG
+	config.WalLwmIdx = WAL_LWM_IDX
+	config.WalBufferCapacity = WAL_BUFFER_CAPACITY
+	config.InternalStart = INTERNAL_START
 	return config
 }
 
-func LoadConfig(filePath string) CoreConfig {
+func LoadConfig(filePath string) *CoreConfig {
 	config := GetDefault()
 
 	configData, err := ioutil.ReadFile(filePath)
@@ -78,9 +105,47 @@ func LoadConfig(filePath string) CoreConfig {
 		err = yaml.UnmarshalStrict(configData, &config)
 		if err != nil {
 			log.Println("Config file at", filePath, "is not valid. Using defaults. Error is:\n", err)
+		} else {
+			config.validate()
 		}
 	}
-	return config
+
+	return &config
+}
+
+func (core *CoreConfig) validate() {
+	err := skiplist.ValidateParams(core.SkiplistLevel, core.SkiplistLevelMax)
+	if err != nil {
+		log.Fatal("Skiplist config:\n", err.Error())
+	}
+
+	if core.MemtableCapacity <= 0 {
+		log.Fatal("Memtable config:\nMemtable capacity must be a positive number, but ", core.MemtableCapacity, " was given")
+	}
+
+	err = lru.ValidateParams(core.CacheCapacity)
+	if err != nil {
+		log.Fatal("LRU config:\n", err.Error())
+	}
+
+	err = lsmtree.ValidateParams(core.SummaryPageSize, 1, core.LsmLvlMax, core.LsmRunMax)
+	if err != nil {
+		log.Fatal("LSM config:\n", err.Error())
+	}
+
+	err = tokenbucket.ValidateParams(core.TokenBucketTokens, int(core.TokenBucketInterval))
+	if err != nil {
+		log.Fatal("Tokenbucket config:\n", err.Error())
+	}
+
+	err = wal.ValidateParams(core.WalMaxRecsInSeg, core.WalLwmIdx, core.WalBufferCapacity)
+	if err != nil {
+		log.Fatal("WAL config:\n", err.Error())
+	}
+
+	if core.InternalStart == "" {
+		log.Fatal("Internal start cannot be an empty string")
+	}
 }
 
 func (conf CoreConfig) Dump(filePath string) {

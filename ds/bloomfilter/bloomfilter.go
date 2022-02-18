@@ -47,7 +47,16 @@ type BloomFilter struct {
 // New Creates a new BloomFilter object.
 // expectedElements is the number of elements likely to be inserted.
 // falsePositiveRate is the probability of error when querying from 0 to 1; if unsure use 0.1.
-func New(expectedElements int, falsePositiveRate float64) *BloomFilter {
+func New(expectedElements int, falsePositiveRate float64) (*BloomFilter, error) {
+	if expectedElements < 0 {
+		err := fmt.Errorf("expectedElements must be greater than or equal to zero, but %d was given", expectedElements)
+		return nil, err
+	}
+	if falsePositiveRate < 0.0 || falsePositiveRate > 1.0 {
+		err := fmt.Errorf("falsePositiveRate must be between (0, 1), but %f was given", falsePositiveRate)
+		return nil, err
+	}
+
 	m := calculateM(expectedElements, falsePositiveRate)
 	k := calculateK(expectedElements, m)
 	hashes, seeds := createHashFunctions(k)
@@ -58,7 +67,7 @@ func New(expectedElements int, falsePositiveRate float64) *BloomFilter {
 		HashSeeds: seeds,
 		Contents:  make([]byte, int(math.Ceil(float64(m)/8))),
 		hashes:    hashes,
-	}
+	}, nil
 }
 
 // Insert inserts a byte sequence into the bloom filter.
@@ -172,7 +181,7 @@ func (bf *BloomFilter) EncodeToBytes() []byte {
 
 func main() {
 	// change package name to main for a quick test
-	bf := New(100, 0.2)
+	bf, _ := New(100, 0.2)
 	fmt.Println(bf)
 	bf.Insert([]byte{1, 2})
 	bf.Insert([]byte{3, 4})

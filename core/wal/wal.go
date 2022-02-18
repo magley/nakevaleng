@@ -27,18 +27,10 @@ type WAL struct {
 
 // Returns a pointer to a WAL object.
 // If no segments are present in the directory, it will create one.
-func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) *WAL {
-	if maxRecordsInSegment <= 0 {
-		errMsg := fmt.Sprint("maxRecordsInSegment must be a positive number, but ", maxRecordsInSegment, " was given.")
-		panic(errMsg)
-	}
-	if lowWaterMarkIndex < 0 {
-		errMsg := fmt.Sprint("lowWaterMarkIndex must be greater than or equal to zero, but ", lowWaterMarkIndex, " was given.")
-		panic(errMsg)
-	}
-	if appendingBufferCapacity <= 0 {
-		errMsg := fmt.Sprint("appendingBufferCapacity must be a positive number, but ", appendingBufferCapacity, " was given.")
-		panic(errMsg)
+func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) (*WAL, error) {
+	err := ValidateParams(maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity)
+	if err != nil {
+		return nil, err
 	}
 
 	segmentPaths := filename.GetSegmentPaths(walPath, dbname)
@@ -68,7 +60,25 @@ func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendi
 		maxRecordsInSegment:     maxRecordsInSegment,
 		lowWaterMarkIndex:       lowWaterMarkIndex,
 		appendingBufferCapacity: appendingBufferCapacity,
-		appendingBuffer:         appendingBuffer}
+		appendingBuffer:         appendingBuffer,
+	}, nil
+}
+
+func ValidateParams(maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) error {
+	if maxRecordsInSegment <= 0 {
+		err := fmt.Errorf("maxRecordsInSegment must be a positive number, but %d was given", maxRecordsInSegment)
+		return err
+	}
+	if lowWaterMarkIndex < 0 {
+		err := fmt.Errorf("lowWaterMarkIndex must be greater than or equal to zero, but %d was given", lowWaterMarkIndex)
+		return err
+	}
+	if appendingBufferCapacity <= 0 {
+		err := fmt.Errorf("appendingBufferCapacity must be a positive number, but %d was given", appendingBufferCapacity)
+		return err
+	}
+
+	return nil
 }
 
 // Helper function that returns the current number of records present in the segment.

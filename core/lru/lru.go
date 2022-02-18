@@ -6,7 +6,6 @@ import (
 	"nakevaleng/core/record"
 )
 
-// TODO: Make Capacity configurable
 type LRU struct {
 	Capacity int
 	Order    list.List
@@ -17,17 +16,25 @@ type LRU struct {
 //  capacity    Maximum size of the LRU
 //  returns     Pointer to an LRU object
 // Throws if the passed capacity is not a positive number.
-func New(capacity int) *LRU {
-	if capacity <= 0 {
-		errMsg := fmt.Sprint("capacity must be a positive number, but ", capacity, " was given.")
-		panic(errMsg)
+func New(capacity int) (*LRU, error) {
+	err := ValidateParams(capacity)
+	if err != nil {
+		return nil, err
 	}
 
 	return &LRU{
 		Capacity: capacity,
 		Order:    list.List{},
 		Data:     map[string]*list.Element{},
+	}, nil
+}
+
+func ValidateParams(capacity int) error {
+	if capacity <= 0 {
+		err := fmt.Errorf("capacity must be a positive number, but %d was given", capacity)
+		return err
 	}
+	return nil
 }
 
 // Get retrieves the record stored in the LRU based on the passed key.
