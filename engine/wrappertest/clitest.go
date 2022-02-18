@@ -140,6 +140,7 @@ func (cli *CLITest) quit() bool {
 	}
 
 	cli.running = false
+	cli.eng.FlushWALBuffer()
 	return true
 }
 
