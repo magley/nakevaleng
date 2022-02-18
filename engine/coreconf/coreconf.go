@@ -184,7 +184,7 @@ func (conf CoreConfig) Dump(filePath string) {
 	}
 }
 
-func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
+func (conf *CoreConfig) MemtableThresholdBytes() (uint64, error) {
 	isAlphaNum := func(s rune) bool {
 		return s >= '0' && s <= '9'
 	}
@@ -213,7 +213,9 @@ func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 	// How many units
 	howMany, err := strconv.Atoi(parts[0])
 	if err != nil {
-		panic(err)
+		conf.MemtableThreshold = GetDefault().MemtableThreshold
+		fallback, _ := conf.MemtableThresholdBytes()
+		return fallback, err
 	}
 	unit := parts[1]
 
@@ -228,7 +230,8 @@ func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 	exp, ok := exponent[unit]
 	if !ok {
 		conf.MemtableThreshold = GetDefault().MemtableThreshold
-		return conf.MemtableThresholdBytes()
+		fallback, _ := conf.MemtableThresholdBytes()
+		return fallback, fmt.Errorf("Bad unit:", unit)
 	}
 
 	// Convert to bytes
@@ -237,5 +240,5 @@ func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 		m *= 1024
 	}
 
-	return uint64(howMany) * m
+	return uint64(howMany) * m, nil
 }
