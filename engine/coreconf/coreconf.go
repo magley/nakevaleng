@@ -12,7 +12,6 @@ import (
 	"nakevaleng/ds/tokenbucket"
 	"os"
 	"strconv"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -185,18 +184,38 @@ func (conf CoreConfig) Dump(filePath string) {
 	}
 }
 
-func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
-	// Parse
-	parts := strings.Split(conf.MemtableThreshold, " ")
-	if len(parts) != 2 {
-		conf.MemtableThreshold = GetDefault().MemtableThreshold
-		return conf.MemtableThresholdBytes()
+func (conf *CoreConfig) MemtableThresholdBytes() (uint64, error) {
+	isNum := func(s rune) bool {
+		return s >= '0' && s <= '9'
 	}
+
+	// Parse
+
+	strBucket := 0
+	parts := [2]string{
+		"", // Number
+		"", // Unit of memory
+	}
+
+	for _, ch := range conf.MemtableThreshold {
+		if ch == ' ' {
+			continue
+		}
+		if strBucket == 0 && !isNum(ch) {
+			strBucket = 1
+		}
+
+		parts[strBucket] += string(ch)
+	}
+
+	// Parse
 
 	// How many units
 	howMany, err := strconv.Atoi(parts[0])
 	if err != nil {
-		panic(err)
+		conf.MemtableThreshold = GetDefault().MemtableThreshold
+		fallback, _ := conf.MemtableThresholdBytes()
+		return fallback, err
 	}
 	unit := parts[1]
 
@@ -211,7 +230,8 @@ func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 	exp, ok := exponent[unit]
 	if !ok {
 		conf.MemtableThreshold = GetDefault().MemtableThreshold
-		return conf.MemtableThresholdBytes()
+		fallback, _ := conf.MemtableThresholdBytes()
+		return fallback, fmt.Errorf("Bad unit: %s", unit)
 	}
 
 	// Convert to bytes
@@ -219,5 +239,6 @@ func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 	for i := 0; i < exp; i++ {
 		m *= 1024
 	}
-	return uint64(howMany) * m
+
+	return uint64(howMany) * m, nil
 }
