@@ -7,7 +7,11 @@ import (
 )
 
 func main() {
-	eng := wrappereng.New(coreconf.LoadConfig("conf.yaml"))
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+	eng := wrappereng.New(conf)
 	test_cli(&eng)
 }
 
