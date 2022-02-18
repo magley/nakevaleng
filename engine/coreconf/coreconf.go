@@ -10,6 +10,7 @@ import (
 	"nakevaleng/core/skiplist"
 	"nakevaleng/core/wal"
 	"nakevaleng/ds/tokenbucket"
+	"os"
 	"strconv"
 	"strings"
 
@@ -119,7 +120,18 @@ func LoadConfig(filePath string) (*CoreConfig, error) {
 }
 
 func (core *CoreConfig) validate() error {
-	err := skiplist.ValidateParams(core.SkiplistLevel, core.SkiplistLevelMax)
+	_, err := os.Stat(core.Path)
+	if os.IsNotExist(err) {
+		err := fmt.Errorf("folder %s does not exist", core.Path)
+		return err
+	}
+	_, err = os.Stat(core.WalPath)
+	if os.IsNotExist(err) {
+		err := fmt.Errorf("folder %s does not exist", core.WalPath)
+		return err
+	}
+
+	err = skiplist.ValidateParams(core.SkiplistLevel, core.SkiplistLevelMax)
 	if err != nil {
 		err := fmt.Errorf("skiplist config: %s", err.Error())
 		return err
