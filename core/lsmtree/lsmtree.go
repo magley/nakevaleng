@@ -48,12 +48,12 @@ func ValidateParams(summaryPageSize int, level int, LVL_MAX, RUN_MAX int) error 
 		err := fmt.Errorf("summaryPageSize must be greater than or equal to zero, but %d was given", summaryPageSize)
 		return err
 	}
-	if level < 0 {
-		err := fmt.Errorf("level must be greater than or equal to zero, but %d was given", level)
+	if level <= 0 {
+		err := fmt.Errorf("level must be a positive number, but %d was given", level)
 		return err
 	}
-	if LVL_MAX < 0 {
-		err := fmt.Errorf("LVL_MAX must be greater than or equal to zero, but %d was given", LVL_MAX)
+	if LVL_MAX < 1 {
+		err := fmt.Errorf("LVL_MAX must be greater than or equal to one, but %d was given", LVL_MAX)
 		return err
 	}
 	if RUN_MAX < 0 {
