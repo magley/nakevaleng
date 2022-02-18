@@ -71,7 +71,12 @@ func (wen WrapperEngine) FlushWALBuffer() {
 }
 
 func main() {
-	engine := New(coreconf.LoadConfig("conf.yaml"))
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	engine := New(conf)
 	test(engine)
 }
 

@@ -1,6 +1,8 @@
 package coreconf
 
 import (
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"nakevaleng/core/lru"
@@ -95,7 +97,7 @@ func GetDefault() CoreConfig {
 	return config
 }
 
-func LoadConfig(filePath string) *CoreConfig {
+func LoadConfig(filePath string) (*CoreConfig, error) {
 	config := GetDefault()
 
 	configData, err := ioutil.ReadFile(filePath)
@@ -106,46 +108,57 @@ func LoadConfig(filePath string) *CoreConfig {
 		if err != nil {
 			log.Println("Config file at", filePath, "is not valid. Using defaults. Error is:\n", err)
 		} else {
-			config.validate()
+			err := config.validate()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	return &config
+	return &config, nil
 }
 
-func (core *CoreConfig) validate() {
+func (core *CoreConfig) validate() error {
 	err := skiplist.ValidateParams(core.SkiplistLevel, core.SkiplistLevelMax)
 	if err != nil {
-		log.Fatal("Skiplist config:\n", err.Error())
+		err := fmt.Errorf("skiplist config: %s", err.Error())
+		return err
 	}
 
 	if core.MemtableCapacity <= 0 {
-		log.Fatal("Memtable config:\nMemtable capacity must be a positive number, but ", core.MemtableCapacity, " was given")
+		err := fmt.Errorf("memtable config: capacity must be a positive number, but %d was given", core.MemtableCapacity)
+		return err
 	}
 
 	err = lru.ValidateParams(core.CacheCapacity)
 	if err != nil {
-		log.Fatal("LRU config:\n", err.Error())
+		err := fmt.Errorf("lru config: %s", err.Error())
+		return err
 	}
 
 	err = lsmtree.ValidateParams(core.SummaryPageSize, 1, core.LsmLvlMax, core.LsmRunMax)
 	if err != nil {
-		log.Fatal("LSM config:\n", err.Error())
+		err := fmt.Errorf("lsm config: %s", err.Error())
+		return err
 	}
 
 	err = tokenbucket.ValidateParams(core.TokenBucketTokens, core.TokenBucketInterval)
 	if err != nil {
-		log.Fatal("Tokenbucket config:\n", err.Error())
+		err := fmt.Errorf("tokenbucket config: %s", err.Error())
+		return err
 	}
 
 	err = wal.ValidateParams(core.WalMaxRecsInSeg, core.WalLwmIdx, core.WalBufferCapacity)
 	if err != nil {
-		log.Fatal("WAL config:\n", err.Error())
+		err := fmt.Errorf("wal config: %s", err.Error())
+		return err
 	}
 
 	if core.InternalStart == "" {
-		log.Fatal("Internal start cannot be an empty string")
+		return errors.New("internal start cannot be an empty string")
 	}
+
+	return nil
 }
 
 func (conf CoreConfig) Dump(filePath string) {

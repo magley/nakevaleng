@@ -243,7 +243,12 @@ func (cen CoreEngine) FlushWALBuffer() {
 }
 
 func main() {
-	engine, _ := New(coreconf.LoadConfig("conf.yaml"))
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	engine, _ := New(conf)
 	test(*engine)
 }
 
