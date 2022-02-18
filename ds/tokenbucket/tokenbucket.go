@@ -19,14 +19,10 @@ type TokenBucket struct {
 //  resetInterval    Length of time (in seconds) for which the current timestamp is valid
 //  returns          Pointer to a TokenBucket object
 // Throws if the maxTokens and/or resetInterval parameters are not positive numbers.
-func New(maxTokens int, resetInterval int64) *TokenBucket {
-	if maxTokens <= 0 {
-		errMsg := fmt.Sprint("maxTokens must be a positive number, but ", maxTokens, " was given.")
-		panic(errMsg)
-	}
-	if resetInterval <= 0 {
-		errMsg := fmt.Sprint("resetInterval must be a positive number, but ", resetInterval, " was given.")
-		panic(errMsg)
+func New(maxTokens int, resetInterval int64) (*TokenBucket, error) {
+	err := ValidateParams(maxTokens, resetInterval)
+	if err != nil {
+		return nil, err
 	}
 
 	return &TokenBucket{
@@ -34,7 +30,20 @@ func New(maxTokens int, resetInterval int64) *TokenBucket {
 		Tokens:        maxTokens,
 		Timestamp:     time.Now().Unix(),
 		ResetInterval: resetInterval,
+	}, nil
+}
+
+func ValidateParams(maxTokens int, resetInterval int64) error {
+	if maxTokens <= 0 {
+		err := fmt.Errorf("maxTokens must be a positive number, but %d was given", maxTokens)
+		return err
 	}
+	if resetInterval <= 0 {
+		err := fmt.Errorf("resetInterval must be a positive number, but %d was given", resetInterval)
+		return err
+	}
+
+	return nil
 }
 
 // HasEnoughTokens checks if the TokenBucket has enough tokens for the user's request.

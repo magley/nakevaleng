@@ -3,6 +3,7 @@ package merkletree
 import (
 	"bufio"
 	"crypto/sha1"
+	"errors"
 	"os"
 )
 
@@ -12,10 +13,13 @@ type MerkleTree struct {
 }
 
 // New constructs a new merkle tree from a given slice of nodes.
-func New(level []MerkleNode) MerkleTree {
+func New(level []MerkleNode) (*MerkleTree, error) {
+	if len(level) == 0 {
+		return nil, errors.New("cannot build Merkle Tree from 0 nodes")
+	}
 	tree := MerkleTree{}
 	tree.Root = &tree.build(level)[0]
-	return tree
+	return &tree, nil
 }
 
 // build is a recursive function for building the next level of nodes.
@@ -23,10 +27,6 @@ func New(level []MerkleNode) MerkleTree {
 // Empty nodes do not alter the merged hash value of the parent node.
 // Returns the newly created level. The very last call will always return just one node - the root.
 func (tree *MerkleTree) build(level []MerkleNode) []MerkleNode {
-	if len(level) == 0 {
-		panic("Cannot build Merkle Tree from 0 nodes.")
-	}
-
 	if len(level)%2 != 0 {
 		level = append(level, MerkleNode{Data: []byte{}})
 	}

@@ -20,8 +20,10 @@ type WrapperEngine struct {
 	core coreeng.CoreEngine
 }
 
-func New(conf coreconf.CoreConfig) WrapperEngine {
-	return WrapperEngine{*coreeng.New(conf)}
+func New(conf *coreconf.CoreConfig) WrapperEngine {
+	coreeng, _ := coreeng.New(conf)
+
+	return WrapperEngine{*coreeng}
 }
 
 func (wen WrapperEngine) PutTyped(user, key string, val []byte, typeInfo byte) bool {
@@ -69,7 +71,12 @@ func (wen WrapperEngine) FlushWALBuffer() {
 }
 
 func main() {
-	engine := New(coreconf.LoadConfig("conf.yaml"))
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	engine := New(conf)
 	test(engine)
 }
 
@@ -78,7 +85,7 @@ func test(engine WrapperEngine) {
 
 	// cms testing
 	fmt.Println("===CMS===")
-	cms := *cmsketch.New(0.1, 0.1)
+	cms, _ := cmsketch.New(0.1, 0.1)
 	fmt.Println(cms.K)
 	fmt.Println(cms.M)
 	cms.Insert([]byte{1, 2})
@@ -89,7 +96,7 @@ func test(engine WrapperEngine) {
 	fmt.Println(cms.Query([]byte{3, 4}))
 	fmt.Println(cms.Query([]byte{2, 5}))
 	fmt.Println("AFTER ENGINEERING")
-	engine.PutCMS(user, "cs", cms)
+	engine.PutCMS(user, "cs", *cms)
 	rec, found := engine.Get(user, "cs")
 	if !found || rec.TypeInfo != TypeCountMinSketch {
 		panic(rec)
@@ -107,7 +114,7 @@ func test(engine WrapperEngine) {
 
 	// hll testing
 	fmt.Println("\n===HLL===")
-	hll1 := *hll.New(4)
+	hll1, _ := hll.New(4)
 	hll1.Add([]byte{1, 2})
 	hll1.Add([]byte{1, 2})
 	hll1.Add([]byte{1, 2})
@@ -115,7 +122,7 @@ func test(engine WrapperEngine) {
 	hll1.Add([]byte{5, 4, 120})
 	fmt.Println(hll1.Estimate())
 	fmt.Println("AFTER ENGINEERING")
-	engine.PutHLL(user, "hl", hll1)
+	engine.PutHLL(user, "hl", *hll1)
 	rec, found = engine.Get(user, "hl")
 	if !found || rec.TypeInfo != TypeHyperLogLog {
 		panic(rec)

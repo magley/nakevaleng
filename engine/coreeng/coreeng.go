@@ -18,23 +18,24 @@ import (
 )
 
 type CoreEngine struct {
-	conf  coreconf.CoreConfig
+	conf  *coreconf.CoreConfig
 	cache *lru.LRU
 	mt    *memtable.Memtable
 	wal   *wal.WAL
 }
 
-func New(conf coreconf.CoreConfig) *CoreEngine {
-	if len(conf.InternalStart) == 0 {
-		return nil
-	}
+func New(conf *coreconf.CoreConfig) (*CoreEngine, error) {
+	// Since New uses CoreConfig (which should always have valid values), we don't need to check for errors here
+	lru, _ := lru.New(conf.CacheCapacity)
+	memtable, _ := memtable.New(conf)
+	wal, _ := wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg, conf.WalLwmIdx, conf.WalBufferCapacity)
+
 	return &CoreEngine{
 		conf,
-		lru.New(conf.CacheCapacity),
-		memtable.New(conf),
-		wal.New(conf.WalPath, conf.DBName, conf.WalMaxRecsInSeg,
-			conf.WalLwmIdx, conf.WalBufferCapacity),
-	}
+		lru,
+		memtable,
+		wal,
+	}, nil
 }
 
 // IsLegal returns true if legal key, otherwise false
@@ -164,7 +165,8 @@ func (cen CoreEngine) getTokenBucket(user []byte) tokenbucket.TokenBucket {
 	tbKey = append(tbKey, user...)
 	tbRec, found := cen.get(tbKey)
 	if !found {
-		return *tokenbucket.New(cen.conf.TokenBucketTokens, cen.conf.TokenBucketInterval)
+		tb, _ := tokenbucket.New(cen.conf.TokenBucketTokens, cen.conf.TokenBucketInterval)
+		return *tb
 	}
 	return tokenbucket.FromBytes(tbRec.Value)
 }
@@ -241,8 +243,13 @@ func (cen CoreEngine) FlushWALBuffer() {
 }
 
 func main() {
-	engine := *New(coreconf.LoadConfig("conf.yaml"))
-	test(engine)
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	engine, _ := New(conf)
+	test(*engine)
 }
 
 func test(engine CoreEngine) {

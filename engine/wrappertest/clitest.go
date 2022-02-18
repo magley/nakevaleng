@@ -140,6 +140,7 @@ func (cli *CLITest) quit() bool {
 	}
 
 	cli.running = false
+	cli.eng.FlushWALBuffer()
 	return true
 }
 
@@ -192,12 +193,13 @@ func (cli *CLITest) hllc() bool {
 		cli.state = _BAD_ARGV
 		return false
 	}
-	if k > hyperloglog.HLL_MAX_PRECISION || k < hyperloglog.HLL_MIN_PRECISION {
+
+	hll, err := hyperloglog.New(k)
+	if err != nil {
 		cli.state = _BAD_ARGV
 		return false
 	}
 
-	hll := hyperloglog.New(k)
 	cli.eng.PutHLL(cli.user, key, *hll)
 
 	return true
@@ -250,12 +252,13 @@ func (cli *CLITest) cmsc() bool {
 		cli.state = _BAD_ARGV
 		return false
 	}
-	if e > 1.0 || e < 0.0 || d > 1.0 || d < 0.0 {
+
+	cms, err := cmsketch.New(e, d)
+	if err != nil {
 		cli.state = _BAD_ARGV
 		return false
 	}
 
-	cms := cmsketch.New(e, d)
 	cli.eng.PutCMS(cli.user, key, *cms)
 
 	return true

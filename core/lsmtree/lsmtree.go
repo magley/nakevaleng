@@ -32,7 +32,39 @@ func needsCompaction(path, dbname string, level int, RUN_MAX int) bool {
 // The result of a compaction is a new SSTable in the first available run on the next level.
 // Chaining is performed in case the next level requires a compation after a new SSTable is created.
 // Only the Data table is created from the existing set, everything else is recreated.
-func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_MAX int) {
+func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_MAX int) error {
+	err := ValidateParams(summaryPageSize, level, LVL_MAX, RUN_MAX)
+	if err != nil {
+		return err
+	}
+
+	compact(path, dbname, summaryPageSize, level, LVL_MAX, RUN_MAX)
+
+	return nil
+}
+
+func ValidateParams(summaryPageSize int, level int, LVL_MAX, RUN_MAX int) error {
+	if summaryPageSize < 0 {
+		err := fmt.Errorf("summaryPageSize must be greater than or equal to zero, but %d was given", summaryPageSize)
+		return err
+	}
+	if level <= 0 {
+		err := fmt.Errorf("level must be a positive number, but %d was given", level)
+		return err
+	}
+	if LVL_MAX < 1 {
+		err := fmt.Errorf("LVL_MAX must be greater than or equal to one, but %d was given", LVL_MAX)
+		return err
+	}
+	if RUN_MAX < 0 {
+		err := fmt.Errorf("RUN_MAX must be greater than or equal to zero, but %d was given", RUN_MAX)
+		return err
+	}
+
+	return nil
+}
+
+func compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_MAX int) {
 	if !needsCompaction(path, dbname, level, RUN_MAX) {
 		return
 	}
@@ -88,7 +120,7 @@ func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_M
 
 	// Chaining (won't do anything if next level doesn't need compaction yet).
 
-	Compact(path, dbname, summaryPageSize, level+1, LVL_MAX, RUN_MAX)
+	compact(path, dbname, summaryPageSize, level+1, LVL_MAX, RUN_MAX)
 }
 
 // merge performs a k-way merge for the tables on a given level.

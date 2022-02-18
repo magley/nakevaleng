@@ -47,7 +47,16 @@ type CountMinSketch struct {
 // New creates a new CountMinSketch object.
 // epsilon is the rate of imprecision (0, 1), if unsure use 0.1.
 // delta is the rate of error (0, 1), if unsure use 0.1.
-func New(epsilon, delta float64) *CountMinSketch {
+func New(epsilon, delta float64) (*CountMinSketch, error) {
+	if epsilon < 0.0 || epsilon > 1.0 {
+		err := fmt.Errorf("epsilon must be between (0, 1), but %f was given", epsilon)
+		return nil, err
+	}
+	if delta < 0.0 || delta > 1.0 {
+		err := fmt.Errorf("delta must be between (0, 1), but %f was given", delta)
+		return nil, err
+	}
+
 	m := calculateM(epsilon)
 	k := calculateK(delta)
 	hashes, seeds := createHashFunctions(k)
@@ -57,7 +66,7 @@ func New(epsilon, delta float64) *CountMinSketch {
 		contents[i] = make([]uint32, m)
 	}
 
-	return &CountMinSketch{m, k, seeds, contents, hashes}
+	return &CountMinSketch{m, k, seeds, contents, hashes}, nil
 }
 
 // Insert a byte sequence into the CMS.
@@ -170,7 +179,7 @@ func DecodeFromFile(filename string) *CountMinSketch {
 }
 
 func main() {
-	cms := New(0.1, 0.1)
+	cms, _ := New(0.1, 0.1)
 	fmt.Println(cms.K)
 	fmt.Println(cms.M)
 	cms.Insert([]byte{1, 2})

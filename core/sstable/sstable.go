@@ -34,12 +34,19 @@ func MakeTable(path, dbname string, summaryPageSize, level, run int, rit record.
 func MakeTableSecondaries(path, dbname string, summaryPageSize, level, run int, merkleleaves []merkletree.MerkleNode, keyctx []record.KeyContext) {
 	makeIndexAndSummary(path, dbname, summaryPageSize, level, run, keyctx)
 	makeFilter(path, dbname, level, run, keyctx)
-	merkleTree := merkletree.New(merkleleaves)
+
+	// MakeTableSecondaries and makeMetadata are the only places where merkletree New is called, so I guess panic here?
+	// In any case, old behaviour was to panic as well (but in merkletree build)
+	merkleTree, err := merkletree.New(merkleleaves)
+	if err != nil {
+		panic(err)
+	}
+
 	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
 }
 
 func makeFilter(path, dbname string, level, run int, keyctx []record.KeyContext) {
-	bf := bloomfilter.New(len(keyctx), 0.01)
+	bf, _ := bloomfilter.New(len(keyctx), 0.01)
 	for _, kc := range keyctx {
 		bf.Insert(kc.Key)
 	}
@@ -55,7 +62,13 @@ func makeMetadata(path, dbname string, level, run int, rit record.Iterator) {
 		}
 	}
 
-	merkleTree := merkletree.New(merkleNodes)
+	// MakeTableSecondaries and makeMetadata are the only places where merkletree New is called, so I guess panic here?
+	// In any case, old behaviour was to panic as well (but in merkletree build)
+	merkleTree, err := merkletree.New(merkleNodes)
+	if err != nil {
+		panic(err)
+	}
+
 	merkleTree.Serialize(filename.Table(path, dbname, level, run, filename.TypeMetadata))
 }
 
