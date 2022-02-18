@@ -20,7 +20,7 @@ type TokenBucket struct {
 //  returns          Pointer to a TokenBucket object
 // Throws if the maxTokens and/or resetInterval parameters are not positive numbers.
 func New(maxTokens int, resetInterval int64) (*TokenBucket, error) {
-	err := ValidateParams(maxTokens, int(resetInterval))
+	err := ValidateParams(maxTokens, resetInterval)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func New(maxTokens int, resetInterval int64) (*TokenBucket, error) {
 	}, nil
 }
 
-func ValidateParams(maxTokens, resetInterval int) error {
+func ValidateParams(maxTokens int, resetInterval int64) error {
 	if maxTokens <= 0 {
 		err := fmt.Errorf("maxTokens must be a positive number, but %d was given", maxTokens)
 		return err

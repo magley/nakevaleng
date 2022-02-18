@@ -133,7 +133,7 @@ func (core *CoreConfig) validate() {
 		log.Fatal("LSM config:\n", err.Error())
 	}
 
-	err = tokenbucket.ValidateParams(core.TokenBucketTokens, int(core.TokenBucketInterval))
+	err = tokenbucket.ValidateParams(core.TokenBucketTokens, core.TokenBucketInterval)
 	if err != nil {
 		log.Fatal("Tokenbucket config:\n", err.Error())
 	}
