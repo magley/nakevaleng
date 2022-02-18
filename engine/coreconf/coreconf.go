@@ -185,7 +185,7 @@ func (conf CoreConfig) Dump(filePath string) {
 }
 
 func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
-	isAlphaNum := func(s rune) bool {
+	isNum := func(s rune) bool {
 		return s >= '0' && s <= '9'
 	}
 
