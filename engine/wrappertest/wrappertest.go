@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nakevaleng/core/record"
+	"nakevaleng/engine/coreconf"
 	"nakevaleng/engine/wrappereng"
 	"os"
 )
@@ -115,8 +116,8 @@ func GenerateTest(testPath string, commands int, maxLen int) {
 }
 
 func main() {
-	GenerateTest("tests/w0001.csv", 1000, 20)
-	fmt.Println("DONE GENERATING")
-	//wen := wrappereng.New(coreconf.LoadConfig("conf.yaml"))
-	//Test(wen, "tests/w0001.csv")
+	//GenerateTest("tests/w0001.csv", 1000, 20)
+	//fmt.Println("DONE GENERATING")
+	wen := wrappereng.New(coreconf.LoadConfig("conf.yaml"))
+	Test(wen, "tests/w0001.csv")
 }

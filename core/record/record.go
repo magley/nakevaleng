@@ -15,6 +15,11 @@ const (
 	RECORD_TOMBSTONE_REMOVED = 1 << 0
 )
 
+// Iterator iterates over records
+// the bool is true if the returned one is one after the last element
+// (passed all records once) this iterates circularly, so it is expected to pass through all at once
+type Iterator func() (Record, bool)
+
 // Atomic unit of information with all required context.
 type Record struct {
 	Crc       uint32 // Checksum of key and value ONLY!!!
