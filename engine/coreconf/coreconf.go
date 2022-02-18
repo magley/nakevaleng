@@ -67,12 +67,12 @@ type CoreConfig struct {
 	InternalStart string `yaml:"internal_start"`
 }
 
-func (cfg CoreConfig) ShouldFlushByCapacity() bool {
-	return (cfg.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
+func (conf CoreConfig) ShouldFlushByCapacity() bool {
+	return (conf.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
 }
 
-func (cfg CoreConfig) ShouldFlushByThreshold() bool {
-	return (cfg.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
+func (conf CoreConfig) ShouldFlushByThreshold() bool {
+	return (conf.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
 }
 
 func GetDefault() CoreConfig {
@@ -119,55 +119,55 @@ func LoadConfig(filePath string) (*CoreConfig, error) {
 	return &config, nil
 }
 
-func (core *CoreConfig) validate() error {
-	err := os.MkdirAll(core.Path, 0777)
+func (conf *CoreConfig) validate() error {
+	err := os.MkdirAll(conf.Path, 0777)
 	if err != nil {
-		err := fmt.Errorf("path \"%s\" is not valid", core.Path)
+		err := fmt.Errorf("path \"%s\" is not valid", conf.Path)
 		return err
 	}
 
-	err = os.MkdirAll(core.WalPath, 0777)
+	err = os.MkdirAll(conf.WalPath, 0777)
 	if err != nil {
-		err := fmt.Errorf("path \"%s\" is not valid", core.WalPath)
+		err := fmt.Errorf("path \"%s\" is not valid", conf.WalPath)
 		return err
 	}
 
-	err = skiplist.ValidateParams(core.SkiplistLevel, core.SkiplistLevelMax)
+	err = skiplist.ValidateParams(conf.SkiplistLevel, conf.SkiplistLevelMax)
 	if err != nil {
 		err := fmt.Errorf("skiplist config: %s", err.Error())
 		return err
 	}
 
-	if core.MemtableCapacity <= 0 {
-		err := fmt.Errorf("memtable config: capacity must be a positive number, but %d was given", core.MemtableCapacity)
+	if conf.MemtableCapacity <= 0 {
+		err := fmt.Errorf("memtable config: capacity must be a positive number, but %d was given", conf.MemtableCapacity)
 		return err
 	}
 
-	err = lru.ValidateParams(core.CacheCapacity)
+	err = lru.ValidateParams(conf.CacheCapacity)
 	if err != nil {
 		err := fmt.Errorf("lru config: %s", err.Error())
 		return err
 	}
 
-	err = lsmtree.ValidateParams(core.SummaryPageSize, 1, core.LsmLvlMax, core.LsmRunMax)
+	err = lsmtree.ValidateParams(conf.SummaryPageSize, 1, conf.LsmLvlMax, conf.LsmRunMax)
 	if err != nil {
 		err := fmt.Errorf("lsm config: %s", err.Error())
 		return err
 	}
 
-	err = tokenbucket.ValidateParams(core.TokenBucketTokens, core.TokenBucketInterval)
+	err = tokenbucket.ValidateParams(conf.TokenBucketTokens, conf.TokenBucketInterval)
 	if err != nil {
 		err := fmt.Errorf("tokenbucket config: %s", err.Error())
 		return err
 	}
 
-	err = wal.ValidateParams(core.WalMaxRecsInSeg, core.WalLwmIdx, core.WalBufferCapacity)
+	err = wal.ValidateParams(conf.WalMaxRecsInSeg, conf.WalLwmIdx, conf.WalBufferCapacity)
 	if err != nil {
 		err := fmt.Errorf("wal config: %s", err.Error())
 		return err
 	}
 
-	if core.InternalStart == "" {
+	if conf.InternalStart == "" {
 		return errors.New("internal start cannot be an empty string")
 	}
 
@@ -185,12 +185,12 @@ func (conf CoreConfig) Dump(filePath string) {
 	}
 }
 
-func (cfg *CoreConfig) MemtableThresholdBytes() uint64 {
+func (conf *CoreConfig) MemtableThresholdBytes() uint64 {
 	// Parse
-	parts := strings.Split(cfg.MemtableThreshold, " ")
+	parts := strings.Split(conf.MemtableThreshold, " ")
 	if len(parts) != 2 {
-		cfg.MemtableThreshold = GetDefault().MemtableThreshold
-		return cfg.MemtableThresholdBytes()
+		conf.MemtableThreshold = GetDefault().MemtableThreshold
+		return conf.MemtableThresholdBytes()
 	}
 
 	// How many units
@@ -210,8 +210,8 @@ func (cfg *CoreConfig) MemtableThresholdBytes() uint64 {
 	// Bad unit
 	exp, ok := exponent[unit]
 	if !ok {
-		cfg.MemtableThreshold = GetDefault().MemtableThreshold
-		return cfg.MemtableThresholdBytes()
+		conf.MemtableThreshold = GetDefault().MemtableThreshold
+		return conf.MemtableThresholdBytes()
 	}
 
 	// Convert to bytes
