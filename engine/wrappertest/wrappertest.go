@@ -119,6 +119,10 @@ func GenerateTest(testPath string, commands int, maxLen int) {
 func main() {
 	//GenerateTest("tests/w0001.csv", 1000, 20)
 	//fmt.Println("DONE GENERATING")
-	wen := wrappereng.New(coreconf.LoadConfig("conf.yaml"))
+	conf, err := coreconf.LoadConfig("conf.yaml")
+	if err != nil {
+		panic(err)
+	}
+	wen := wrappereng.New(conf)
 	Test(wen, "tests/w0001.csv")
 }
