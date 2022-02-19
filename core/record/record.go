@@ -112,10 +112,6 @@ func (rec Record) String() string {
 	)
 }
 
-func (rec *Record) CalcCRC() {
-	rec.Crc = crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
-}
-
 // Deserialize reads data from buffered reader and overwrites this record.
 // The checksum is recalculated and compared with the one read from the file.
 // The function will panic if they don't match.

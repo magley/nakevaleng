@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// TokenBucket is the implementation of the rate-limiting algorithm.
 type TokenBucket struct {
 	MaxTokens     int
 	Tokens        int

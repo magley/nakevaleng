@@ -22,6 +22,7 @@ const (
 	_ERROR    = 5
 )
 
+// CLITest is a proxy between the command line interface, utilizing WrapperEngine.
 type CLITest struct {
 	eng     *wrappereng.WrapperEngine
 	args    []string

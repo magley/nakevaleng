@@ -45,6 +45,7 @@ const (
 	INTERNAL_START          = "$"
 )
 
+// CoreConfig is a data structure storing all modifiable-on-disk settings for the database engine.
 type CoreConfig struct {
 	Path    string `yaml:"path"`
 	WalPath string `yaml:"wal_path"`

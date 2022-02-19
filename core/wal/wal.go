@@ -13,6 +13,7 @@ import (
 	"github.com/edsrzf/mmap-go"
 )
 
+// WAL is the implementation of a buffered, segmented Write-Ahead-Log, used for data integrity and recovery.
 type WAL struct {
 	walPath string
 	dbname  string

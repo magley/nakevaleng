@@ -19,6 +19,7 @@ import (
 	"nakevaleng/util/filename"
 )
 
+// CoreEngine is an aggregate structure of all components required for a complete read and write path for nakevaleng.
 type CoreEngine struct {
 	conf  *coreconf.CoreConfig
 	cache *lru.LRU

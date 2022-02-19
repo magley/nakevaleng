@@ -18,6 +18,7 @@ const (
 	HLL_MAX_PRECISION = 16
 )
 
+// HLL is a probabilistic data structure used to estimate the cardinality of a set.
 type HLL struct {
 	M   uint64
 	P   uint8
@@ -38,6 +39,7 @@ func New(precision int) (*HLL, error) {
 	return &HLL{m, uint8(precision), reg}, nil
 }
 
+// Add inserts a new element into the hyperloglog structure.
 func (hll *HLL) Add(data []byte) {
 	// hash the data
 	hash := murmur3.New32()

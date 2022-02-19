@@ -38,6 +38,7 @@ func createHashFunctions(k uint) ([]hash.Hash32, []uint32) {
 	return hashes, timestamps
 }
 
+// CountMinSketch is a probabilistic data structure used for estimating element cardinality in a multiset.
 type CountMinSketch struct {
 	M         uint          // Number of columns in the table
 	K         uint          // Number of hashes (i.e. rows) in the table

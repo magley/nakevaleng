@@ -18,6 +18,8 @@ const (
 	TypeHyperLogLog    = 2
 )
 
+// WrapperEngine is a thin application layer wrapping around CoreEngine, with additional support for
+// easy reading and writing of CMS and HLL objects.
 type WrapperEngine struct {
 	core coreeng.CoreEngine
 }
