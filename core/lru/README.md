@@ -6,7 +6,7 @@ lru
 ```go
 
 capacity := 3
-lru := lru.New(capacity)
+lru, _ := lru.New(capacity)
 
 rec1 := record.NewFromString("Key01", "Val01")
 rec2 := record.NewFromString("Key02", "Val02")

@@ -1,3 +1,5 @@
+// Package wrappereng implements a WrapperEngine used for convenient wrapping around
+// the more complex CoreEngine.
 package wrappereng
 
 import (
@@ -9,7 +11,7 @@ import (
 	"nakevaleng/engine/coreeng"
 )
 
-// the types as kept in records
+// The types as kept in records.
 const (
 	TypeVoid           = 0
 	TypeCountMinSketch = 1
@@ -20,36 +22,47 @@ type WrapperEngine struct {
 	core coreeng.CoreEngine
 }
 
+// New returns a new WrapperEngine object.
 func New(conf *coreconf.CoreConfig) WrapperEngine {
 	coreeng, _ := coreeng.New(conf)
 
 	return WrapperEngine{*coreeng}
 }
 
+// PutTypes writes a new record in the system based on the passed key, val and typeInfo
+// parameters.
 func (wen WrapperEngine) PutTyped(user, key string, val []byte, typeInfo byte) bool {
 	return wen.core.Put([]byte(user), []byte(key), val, typeInfo)
 }
 
+// Put writes a new record in the system based on the passed key and val parameters.
 func (wen WrapperEngine) Put(user, key string, val []byte) bool {
 	return wen.core.Put([]byte(user), []byte(key), val, TypeVoid)
 }
 
+// Get returns a record stored in the system based on the passed key, as well as
+// whether or not the record is present.
 func (wen WrapperEngine) Get(user, key string) (record.Record, bool) {
 	return wen.core.Get([]byte(user), []byte(key))
 }
 
+// Delete does logical deletion of the record with the passed key in the system
+// (if it exists). Returns whether or not the deletion was successful.
 func (wen WrapperEngine) Delete(user, key string) bool {
 	return wen.core.Delete([]byte(user), []byte(key))
 }
 
+// PutCMS writes a new record in the system whose value represents a CMS object.
 func (wen WrapperEngine) PutCMS(user, key string, cms cmsketch.CountMinSketch) bool {
 	return wen.PutTyped(user, key, cms.EncodeToBytes(), TypeCountMinSketch)
 }
 
+// PutHLL writes a new record in the system whose value represents a HLL object.
 func (wen WrapperEngine) PutHLL(user, key string, hll hll.HLL) bool {
 	return wen.PutTyped(user, key, hll.EncodeToBytes(), TypeHyperLogLog)
 }
 
+// GetCMS returns a CountMinSketch object found in the system under the passed key.
 func (wen WrapperEngine) GetCMS(user, key string) *cmsketch.CountMinSketch {
 	rec, found := wen.Get(user, key)
 	if !found || rec.TypeInfo != TypeCountMinSketch {
@@ -58,6 +71,7 @@ func (wen WrapperEngine) GetCMS(user, key string) *cmsketch.CountMinSketch {
 	return cmsketch.DecodeFromBytes(rec.Value)
 }
 
+// GetHLL returns a HyperLogLog object found in the system under the passed key.
 func (wen WrapperEngine) GetHLL(user, key string) *hll.HLL {
 	rec, found := wen.Get(user, key)
 	if !found || rec.TypeInfo != TypeHyperLogLog {
@@ -66,6 +80,7 @@ func (wen WrapperEngine) GetHLL(user, key string) *hll.HLL {
 	return hll.DecodeFromBytes(rec.Value)
 }
 
+// FlushWALBuffer is a convenience function for flushing the WAL's buffer.
 func (wen WrapperEngine) FlushWALBuffer() {
 	wen.core.FlushWALBuffer()
 }

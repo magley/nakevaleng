@@ -1,3 +1,4 @@
+// Package memtable implements a memtable structure used for in-memory PUTs and GETs
 package memtable
 
 import (
@@ -17,7 +18,7 @@ type Memtable struct {
 	sl        *skiplist.Skiplist
 }
 
-// Returns a pointer to a new Memtable object.
+// New returns a pointer to a new Memtable object.
 func New(conf *coreconf.CoreConfig) (*Memtable, error) {
 	// if conf is valid, this should never fail
 	sl, _ := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)

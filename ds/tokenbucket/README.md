@@ -7,7 +7,7 @@ tokenbucket
 maxTokens := 2
 resetInterval := 4 // seconds
 
-tb := tokenbucket.New(maxTokens, resetInterval)
+tb, _ := tokenbucket.New(maxTokens, resetInterval)
 
 for {
     tb.HasEnoughTokens()

@@ -1,3 +1,5 @@
+// Package coreconf implements a configuration structure used for supplying the
+// entire program with valid parameters.
 package coreconf
 
 import (
@@ -22,7 +24,7 @@ const (
 	_FLUSH_THRESHOLD = 1 << 1
 )
 
-// default values
+// Default values for the configuration.
 const (
 	PATH                    = "data/"
 	WAL_PATH                = "data/log/"
@@ -67,14 +69,19 @@ type CoreConfig struct {
 	InternalStart string `yaml:"internal_start"`
 }
 
+// ShouldFlushByCapacity returns whether or not the Memtable should flush
+// by capacity.
 func (cfg CoreConfig) ShouldFlushByCapacity() bool {
 	return (cfg.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
 }
 
+// ShouldFlushByThreshold returns whether or not the Memtable should flush
+// by threshold.
 func (cfg CoreConfig) ShouldFlushByThreshold() bool {
 	return (cfg.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
 }
 
+// GetDefault returns a config object with the default values for all parameters.
 func GetDefault() CoreConfig {
 	var config CoreConfig
 	config.Path = PATH
@@ -98,6 +105,8 @@ func GetDefault() CoreConfig {
 	return config
 }
 
+// LoadConfig reads the YAML file at filePath and returns a config object and
+// an error indicating whether or not the config object was made successfully.
 func LoadConfig(filePath string) (*CoreConfig, error) {
 	config := GetDefault()
 
@@ -174,6 +183,7 @@ func (core *CoreConfig) validate() error {
 	return nil
 }
 
+// Dump writes the config object to filePath.
 func (conf CoreConfig) Dump(filePath string) {
 	configData, err := yaml.Marshal(conf)
 	if err != nil {
@@ -185,6 +195,8 @@ func (conf CoreConfig) Dump(filePath string) {
 	}
 }
 
+// MemtableThresholdBytes parses the config's memtable threshold
+// parameter and returns it as an uint64.
 func (cfg *CoreConfig) MemtableThresholdBytes() uint64 {
 	// Parse
 	parts := strings.Split(cfg.MemtableThreshold, " ")

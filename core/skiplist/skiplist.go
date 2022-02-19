@@ -1,3 +1,4 @@
+// Package skiplist implements a basic skiplist structure.
 package skiplist
 
 import (
@@ -33,6 +34,8 @@ func New(level int, levelmax int) (*Skiplist, error) {
 	}, nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to Skiplist's New.
 func ValidateParams(level, levelmax int) error {
 	if level > levelmax {
 		err := fmt.Errorf("maximum skiplist height is %d, but %d was given", levelmax, level)

@@ -1,3 +1,4 @@
+// Package tokenbucket implements a TokenBucket structure used for rate-limiting.
 package tokenbucket
 
 import (
@@ -6,7 +7,6 @@ import (
 	"time"
 )
 
-// TODO: Make MaxTokens and ResetInterval configurable
 type TokenBucket struct {
 	MaxTokens     int
 	Tokens        int
@@ -15,10 +15,6 @@ type TokenBucket struct {
 }
 
 // New creates a pointer to a TokenBucket object.
-//  maxTokens        Maximum amomunt of tokens to be stored in the TokenBucket
-//  resetInterval    Length of time (in seconds) for which the current timestamp is valid
-//  returns          Pointer to a TokenBucket object
-// Throws if the maxTokens and/or resetInterval parameters are not positive numbers.
 func New(maxTokens int, resetInterval int64) (*TokenBucket, error) {
 	err := ValidateParams(maxTokens, resetInterval)
 	if err != nil {
@@ -33,6 +29,8 @@ func New(maxTokens int, resetInterval int64) (*TokenBucket, error) {
 	}, nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to TokenBucket's New.
 func ValidateParams(maxTokens int, resetInterval int64) error {
 	if maxTokens <= 0 {
 		err := fmt.Errorf("maxTokens must be a positive number, but %d was given", maxTokens)

@@ -1,3 +1,5 @@
+// Package cmsketch implements a CountMinSketch structure used for counting the number
+// of occurances of each of its elements.
 package cmsketch
 
 import (

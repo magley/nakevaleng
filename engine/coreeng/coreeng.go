@@ -1,3 +1,5 @@
+// Package coreeng implements the core engine used for interaction
+// with the program via Put, Get and Delete operations.
 package coreeng
 
 import (
@@ -24,6 +26,8 @@ type CoreEngine struct {
 	wal   *wal.WAL
 }
 
+// New returns a pointer to a new CoreEngine object, as well as an error
+// indicating whether or not it was successful.
 func New(conf *coreconf.CoreConfig) (*CoreEngine, error) {
 	// Since New uses CoreConfig (which should always have valid values), we don't need to check for errors here
 	lru, _ := lru.New(conf.CacheCapacity)
@@ -38,7 +42,7 @@ func New(conf *coreconf.CoreConfig) (*CoreEngine, error) {
 	}, nil
 }
 
-// IsLegal returns true if legal key, otherwise false
+// IsLegal returns true if legal key, otherwise false.
 func (cen CoreEngine) IsLegal(key []byte) bool {
 	start := []byte(cen.conf.InternalStart)
 	count := 0
@@ -53,6 +57,8 @@ func (cen CoreEngine) IsLegal(key []byte) bool {
 	return true
 }
 
+// Get returns a record stored in the system based on the passed key, as well as
+// whether or not the record is present.
 func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 	legal := cen.IsLegal(key)
 	if !legal {
@@ -177,6 +183,8 @@ func (cen CoreEngine) putTokenBucket(user []byte, bucket tokenbucket.TokenBucket
 	cen.put(record.New(tbKey, bucket.ToBytes()))
 }
 
+// Put writes a new record in the system based on the passed key, val and typeInfo
+// parameters.
 func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
@@ -211,6 +219,8 @@ func (cen CoreEngine) put(rec record.Record) {
 	}
 }
 
+// Delete does logical deletion of the record with the passed key in the system
+// (if it exists). Returns whether or not the deletion was successful.
 func (cen CoreEngine) Delete(user, key []byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
@@ -238,6 +248,7 @@ func (cen CoreEngine) Delete(user, key []byte) bool {
 	return true
 }
 
+// FlushWALBuffer is a convenience function for flushing the WAL's buffer.
 func (cen CoreEngine) FlushWALBuffer() {
 	cen.wal.FlushBuffer()
 }

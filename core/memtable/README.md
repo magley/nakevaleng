@@ -2,12 +2,13 @@
 memtable
     - uses a skiplist to store records
     - when full, forms an SStable that gets flushed to disk
+    - supports both threshold-based and capacity-based flushing
 ```
 
 ```go
 
-conf := coreconf.LoadConfig("config.yaml")
-memtable := memtable.New(conf)
+conf, _ := coreconf.LoadConfig("config.yaml")
+memtable, _ := memtable.New(conf)
 
 rec1 := record.NewFromString("key01", "val01")
 rec2 := record.NewFromString("key02", "val02")

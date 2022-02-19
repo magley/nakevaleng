@@ -1,3 +1,5 @@
+// Package merkletree implements a MerkleTree structure used for over-the-network
+// verification of data.
 package merkletree
 
 import (

@@ -1,3 +1,4 @@
+// Package hll implements a HyperLogLog structure used for estimating the number of unique elements inserted into it.
 package hll
 
 import (
@@ -12,7 +13,6 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
-// Keep these constants here?
 const (
 	HLL_MIN_PRECISION = 4
 	HLL_MAX_PRECISION = 16
@@ -69,6 +69,7 @@ func (hll *HLL) emptyCount() int {
 	return sum
 }
 
+// Estimate returns the estimated cardinality of the HyperLogLog.
 func (hll *HLL) Estimate() float64 {
 	sum := 0.0
 	for _, val := range hll.Reg {
