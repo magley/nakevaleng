@@ -23,10 +23,15 @@ func New(conf *coreconf.CoreConfig) (*Memtable, error) {
 	// if conf is valid, this should never fail
 	sl, _ := skiplist.New(conf.SkiplistLevel, conf.SkiplistLevelMax)
 
+	threshold, err := conf.MemtableThresholdBytes()
+	if err != nil {
+		fmt.Println("Invalid configuration for threshold:", err, "\nreverting to default:", threshold)
+	}
+
 	return &Memtable{
 		conf:      conf,
 		memusage:  uint64(0),
-		threshold: conf.MemtableThresholdBytes(),
+		threshold: threshold,
 		sl:        sl,
 	}, nil
 }
