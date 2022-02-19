@@ -244,7 +244,7 @@ func (conf *CoreConfig) MemtableThresholdBytes() (uint64, error) {
 	if !ok {
 		conf.MemtableThreshold = GetDefault().MemtableThreshold
 		fallback, _ := conf.MemtableThresholdBytes()
-		return fallback, fmt.Errorf("Bad unit: %s", unit)
+		return fallback, fmt.Errorf("bad unit: %s", unit)
 	}
 
 	// Convert to bytes

@@ -85,8 +85,8 @@ func makeIndexAndSummary(path, dbname string, summaryPageSize, level, run int, k
 
 	offsetIndex := int64(0)   // Refers to the offset in a Data table, used in an Index table
 	offsetSummary := int64(0) // Refers to the offset in an Index table, used in a Summary table
-	// Summary Table: write header first, and then the entires. Problem: the header depends on the
-	// entries' data. One solution is to do a 2-pass but it results in ugly code. It's actually OK
+	// Summary Table: write header first, and then the entries. Problem: the header depends on the
+	// entries' data. One solution is to do a 2-pass, but it results in ugly code. It's actually OK
 	// to put all the entries into memory first and dump them to disk later, because Summary tables
 	// are meant to be small enough to keep in memory when reading (unlike Index tables).
 

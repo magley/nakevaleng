@@ -1,5 +1,5 @@
 // Package bloomfilter implements a BloomFilter structure used for in-memory querying
-// of an element's possible existance.
+// of an element's possible existence.
 package bloomfilter
 
 import (

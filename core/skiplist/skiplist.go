@@ -13,7 +13,7 @@ type Skiplist struct {
 	Level    int
 	LevelMax int
 	Header   *SkiplistNode
-	Count    int // Number of elements, incuding "removed" ones
+	Count    int // Number of elements, including "removed" ones
 }
 
 // New creates an empty Skiplist with height 'level'.

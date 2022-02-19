@@ -17,7 +17,7 @@ const (
 	extensionLog = "log"
 )
 
-// Enum for possible file types. Possible values are Type*.
+// FileType is an enum for possible file types. Possible values are Type*.
 type FileType int
 
 const (
@@ -50,30 +50,30 @@ func (ftype FileType) IsSSTable() bool {
 	return ftype >= TypeData && ftype <= TypeMetadata
 }
 
-// table creates a valid table filename (with relative path) used for SSTables.
+// Table creates a valid table filename (with relative path) used for SSTables.
 //	dbname  `Name of the database (or the program that's using nakevaleng).`
 //	level   `Level the table is on, used for compaction. Must be >= 1.`
 //	run     `Index of the SSTable of this table. Must be >= 0.`
 //	filetype`Which data does the table hold (see the FileType enum).`
-func Table(relativepath, dbname string, level, run int, filetype FileType) string {
-	if relativepath[len(relativepath)-1:] != "/" {
-		panic("Table() :: relativepath must end with '/'")
+func Table(relativePath, dbname string, level, run int, filetype FileType) string {
+	if relativePath[len(relativePath)-1:] != "/" {
+		panic("Table() :: relativePath must end with '/'")
 	}
 
 	fname := table(dbname, level, run, filetype)
-	return relativepath + fname
+	return relativePath + fname
 }
 
-// log creates a valid WAL filename (with relative path).
+// Log creates a valid WAL filename (with relative path).
 //	dbname  `Name of the database (or the program that's using nakevaleng).`
 //	logno   `Index of the log file in the WAL. Must be >= 0.`
-func Log(relativepath, dbname string, logno int) string {
-	if relativepath[len(relativepath)-1:] != "/" {
-		panic("Table() :: relativepath must end with '/'")
+func Log(relativePath, dbname string, logno int) string {
+	if relativePath[len(relativePath)-1:] != "/" {
+		panic("Table() :: relativePath must end with '/'")
 	}
 
 	fname := log(dbname, logno)
-	return relativepath + fname
+	return relativePath + fname
 }
 
 // Query fetches engine-level information about the file from its filename (not path).
@@ -126,8 +126,8 @@ func Query(fname string) (dbname string, level, run int, filetype FileType) {
 }
 
 // GetLastLevel returns the level of the greatest value at the specified path for the database name.
-func GetLastLevel(relativepath, dbname string) int {
-	files, err := ioutil.ReadDir(relativepath)
+func GetLastLevel(relativePath, dbname string) int {
+	files, err := ioutil.ReadDir(relativePath)
 	if err != nil {
 		panic(err)
 	}
@@ -162,7 +162,7 @@ func GetLastLevel(relativepath, dbname string) int {
 	return level
 }
 
-// GetRun returns the run at given level at the specified path for the given database name.
+// GetLastRun returns the run at given level at the specified path for the given database name.
 // Returns a number from 0 onwards.
 // Returns -1 if the level does not exist (i.e. it's empty)
 func GetLastRun(relativepath, dbname string, level int) int {
@@ -208,8 +208,8 @@ func GetLastRun(relativepath, dbname string, level int) int {
 }
 
 // GetLastLog returns the index of the last log file at the specified path for the given database.
-func GetLastLog(relativepath string, dbname string) int {
-	files, err := ioutil.ReadDir(relativepath)
+func GetLastLog(relativePath string, dbname string) int {
+	files, err := ioutil.ReadDir(relativePath)
 	if err != nil {
 		panic(err)
 	}
@@ -246,8 +246,8 @@ func GetLastLog(relativepath string, dbname string) int {
 }
 
 // GetSegmentPaths returns a slice of all the log paths at the specified relative path for the given database.
-func GetSegmentPaths(relativepath string, dbname string) []string {
-	files, err := ioutil.ReadDir(relativepath)
+func GetSegmentPaths(relativePath string, dbname string) []string {
+	files, err := ioutil.ReadDir(relativePath)
 	if err != nil {
 		panic(err)
 	}
@@ -274,7 +274,7 @@ func GetSegmentPaths(relativepath string, dbname string) []string {
 			panic("GetLastLog() :: Bad database names (not matching)!")
 		}
 
-		path := Log(relativepath, dbgot, myLogNo)
+		path := Log(relativePath, dbgot, myLogNo)
 		segmentPaths = append(segmentPaths, path)
 	}
 

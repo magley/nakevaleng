@@ -60,7 +60,7 @@ func (mt *Memtable) Add(rec record.Record) bool {
 	return isNewElement
 }
 
-// ShouldFlush returns true if the memtable is ready to be flushed into an sstable, as determined by
+// ShouldFlush returns true if the memtable is ready to be flushed into a SSTable, as determined by
 // the currently set MemtableFlushStrategy.
 func (mt Memtable) ShouldFlush() bool {
 	return (mt.conf.ShouldFlushByCapacity() && mt.sl.Count == mt.conf.MemtableCapacity) ||

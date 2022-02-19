@@ -12,10 +12,10 @@ func main() {
 		panic(err)
 	}
 	eng := wrappereng.New(conf)
-	test_cli(&eng)
+	testCLI(&eng)
 }
 
-func test_cli(eng *wrappereng.WrapperEngine) {
+func testCLI(eng *wrappereng.WrapperEngine) {
 	// To remove all the debug output that's written on the CLI, search for:
 	// fmt.Println("[DBG]\t
 

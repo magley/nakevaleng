@@ -11,7 +11,7 @@ const (
 	MERKLE_NODE_EMPTY = 1
 )
 
-// Structure for a Merkle tree node.
+// MerkleNode is a structure for a Merkle tree node.
 type MerkleNode struct {
 	Data  []byte
 	Left  *MerkleNode
@@ -44,10 +44,10 @@ func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 
 	// Write flags and data if not empty
 
-	flags_buffer := make([]byte, 1)
-	flags_buffer[0] = flags
+	flagsBuffer := make([]byte, 1)
+	flagsBuffer[0] = flags
 
-	_, err := writer.Write(flags_buffer)
+	_, err := writer.Write(flagsBuffer)
 	if err != nil {
 		panic(err)
 	}
@@ -64,9 +64,9 @@ func (node *MerkleNode) Serialize(writer *bufio.Writer) {
 
 // Deserialize reads data from file reader into this node's Data field.
 // Child references are not overwritten!
-func (this *MerkleNode) Deserialize(reader *bufio.Reader) bool {
-	flags_buf := make([]byte, 1)
-	_, err := io.ReadFull(reader, flags_buf)
+func (node *MerkleNode) Deserialize(reader *bufio.Reader) bool {
+	flagsBuf := make([]byte, 1)
+	_, err := io.ReadFull(reader, flagsBuf)
 
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -76,11 +76,11 @@ func (this *MerkleNode) Deserialize(reader *bufio.Reader) bool {
 		}
 	}
 
-	if (flags_buf[0] & MERKLE_NODE_EMPTY) == MERKLE_NODE_EMPTY {
-		this.Data = []byte{}
+	if (flagsBuf[0] & MERKLE_NODE_EMPTY) == MERKLE_NODE_EMPTY {
+		node.Data = []byte{}
 	} else {
-		data_buf := make([]byte, 20)
-		_, err = io.ReadFull(reader, data_buf)
+		dataBuf := make([]byte, 20)
+		_, err = io.ReadFull(reader, dataBuf)
 
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -90,19 +90,19 @@ func (this *MerkleNode) Deserialize(reader *bufio.Reader) bool {
 			}
 		}
 
-		this.Data = data_buf[:]
+		node.Data = dataBuf[:]
 	}
 	return false
 }
 
 // rehash recalculates the hash data for this node (and all its child nodes).
-func (this *MerkleNode) rehash() []byte {
-	if this.Left == nil && this.Right == nil {
-		return this.Data
+func (node *MerkleNode) rehash() []byte {
+	if node.Left == nil && node.Right == nil {
+		return node.Data
 	}
 
-	lefthash := this.Left.rehash()
-	righthash := this.Right.rehash()
-	hash := sha1.Sum(append(lefthash, righthash...))
+	leftHash := node.Left.rehash()
+	rightHash := node.Right.rehash()
+	hash := sha1.Sum(append(leftHash, rightHash...))
 	return hash[:]
 }
