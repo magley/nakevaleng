@@ -1,3 +1,5 @@
+// Package bloomfilter implements a BloomFilter structure used for in-memory querying
+// of an element's possible existance.
 package bloomfilter
 
 import (
@@ -36,6 +38,7 @@ func createHashFunctions(k uint32) ([]hash.Hash32, []uint32) {
 	return hashes, timestamps
 }
 
+// BloomFilter is a probabilistic data structure used for checking if an element is inside a set.
 type BloomFilter struct {
 	M         uint32        // Number of bits
 	K         uint32        // Number of hash functions

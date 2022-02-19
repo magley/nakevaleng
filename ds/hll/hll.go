@@ -1,3 +1,4 @@
+// Package hll implements a HyperLogLog structure used for estimating the number of unique elements inserted into it.
 package hll
 
 import (
@@ -12,12 +13,12 @@ import (
 	"github.com/spaolacci/murmur3"
 )
 
-// Keep these constants here?
 const (
 	HLL_MIN_PRECISION = 4
 	HLL_MAX_PRECISION = 16
 )
 
+// HLL is a probabilistic data structure used to estimate the cardinality of a set.
 type HLL struct {
 	M   uint64
 	P   uint8
@@ -38,6 +39,7 @@ func New(precision int) (*HLL, error) {
 	return &HLL{m, uint8(precision), reg}, nil
 }
 
+// Add inserts a new element into the hyperloglog structure.
 func (hll *HLL) Add(data []byte) {
 	// hash the data
 	hash := murmur3.New32()
@@ -69,6 +71,7 @@ func (hll *HLL) emptyCount() int {
 	return sum
 }
 
+// Estimate returns the estimated cardinality of the HyperLogLog.
 func (hll *HLL) Estimate() float64 {
 	sum := 0.0
 	for _, val := range hll.Reg {

@@ -40,7 +40,7 @@ skiplist
 
 // Create new 
 
-skiplist := skiplist.New(3)
+skiplist, _ := skiplist.New(3)
 
 {
     // Some data

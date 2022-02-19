@@ -1,3 +1,4 @@
+// Package sstable implements the functions necessary for the creation of an SSTable on disk.
 package sstable
 
 import (

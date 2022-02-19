@@ -1,3 +1,5 @@
+// Package wal implements a segmented WAL structure used for on-disk logging
+// and potential reconstruction of in-memory data.
 package wal
 
 import (
@@ -11,6 +13,7 @@ import (
 	"github.com/edsrzf/mmap-go"
 )
 
+// WAL is the implementation of a buffered, segmented Write-Ahead-Log, used for data integrity and recovery.
 type WAL struct {
 	walPath string
 	dbname  string
@@ -64,6 +67,8 @@ func New(walPath, dbname string, maxRecordsInSegment, lowWaterMarkIndex, appendi
 	}, nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to WAL's New.
 func ValidateParams(maxRecordsInSegment, lowWaterMarkIndex, appendingBufferCapacity int) error {
 	if maxRecordsInSegment <= 0 {
 		err := fmt.Errorf("maxRecordsInSegment must be a positive number, but %d was given", maxRecordsInSegment)

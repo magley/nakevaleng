@@ -1,3 +1,4 @@
+// Package skiplist implements a basic skiplist structure.
 package skiplist
 
 import (
@@ -7,6 +8,7 @@ import (
 	"nakevaleng/core/record"
 )
 
+// Implementation of a skiplist structure.
 type Skiplist struct {
 	Level    int
 	LevelMax int
@@ -15,7 +17,6 @@ type Skiplist struct {
 }
 
 // New creates an empty Skiplist with height 'level'.
-// 	level	Number of available levels in range [0, level).
 // Throws an error if specified height is greater than the maximium allowed height or less than 1.
 func New(level int, levelmax int) (*Skiplist, error) {
 	err := ValidateParams(level, levelmax)
@@ -33,6 +34,8 @@ func New(level int, levelmax int) (*Skiplist, error) {
 	}, nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to Skiplist's New.
 func ValidateParams(level, levelmax int) error {
 	if level > levelmax {
 		err := fmt.Errorf("maximum skiplist height is %d, but %d was given", levelmax, level)
@@ -127,8 +130,7 @@ func (skiplist *Skiplist) Remove(key []byte) {
 }
 
 // Find traverses the Skiplist, looking for a node with the given key.
-// 	key             Key to search for
-//	returns         A pointer to the node, or nil if not found
+// Returns a pointer to the node, or nil if not found
 func (skiplist Skiplist) Find(key []byte) *SkiplistNode {
 	node := skiplist.Header
 

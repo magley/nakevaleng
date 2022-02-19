@@ -1,3 +1,5 @@
+// Package lsmtree implements a Log-structured merge-tree (LSM tree) using
+// size-tiered compaction.
 package lsmtree
 
 import (
@@ -43,6 +45,8 @@ func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_M
 	return nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to the Compact function.
 func ValidateParams(summaryPageSize int, level int, LVL_MAX, RUN_MAX int) error {
 	if summaryPageSize < 0 {
 		err := fmt.Errorf("summaryPageSize must be greater than or equal to zero, but %d was given", summaryPageSize)

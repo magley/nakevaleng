@@ -9,7 +9,7 @@ cmsketch
 
 // Create new count-min sketch
 
-cms := New(0.1, 0.1)
+cms, _ := New(0.1, 0.1)
 
 // Insert
 

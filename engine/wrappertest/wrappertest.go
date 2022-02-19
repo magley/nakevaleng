@@ -1,3 +1,4 @@
+// Package wrappertest implements functions used for testing the system.
 package wrappertest
 
 import (
@@ -14,6 +15,8 @@ import (
 	"strconv"
 )
 
+// Test reads the generated test file and parses it into commands to be
+// used by the WrapperEngine.
 func Test(wen wrappereng.WrapperEngine, testPath string) {
 	f, err := os.OpenFile(testPath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -100,6 +103,8 @@ func Test(wen wrappereng.WrapperEngine, testPath string) {
 	wen.FlushWALBuffer()
 }
 
+// GenerateTest creates a CSV file with randomly generated commands to be
+// passed to the WrapperEngine in Test.
 func GenerateTest(testPath string, commands int, maxLen, hllMaxLen, cmsMaxLen int) {
 	f, err := os.Create(testPath)
 	if err != nil {

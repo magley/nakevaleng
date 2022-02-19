@@ -22,6 +22,7 @@ const (
 	_ERROR    = 5
 )
 
+// CLITest is a proxy between the command line interface, utilizing WrapperEngine.
 type CLITest struct {
 	eng     *wrappereng.WrapperEngine
 	args    []string
@@ -30,6 +31,7 @@ type CLITest struct {
 	running bool
 }
 
+// NewCLI returns a pointer to a new CLITest object.
 func NewCLI(user string, eng *wrappereng.WrapperEngine) *CLITest {
 	fmt.Println("Type 'help' for a list of commands.")
 	return &CLITest{
@@ -41,10 +43,12 @@ func NewCLI(user string, eng *wrappereng.WrapperEngine) *CLITest {
 	}
 }
 
+// IsRunning returns whether or not the CLI is running.
 func (cli CLITest) IsRunning() bool {
 	return cli.running
 }
 
+// Next prepares the CLI for its next command(s).
 func (cli *CLITest) Next() {
 	// Print error and help
 

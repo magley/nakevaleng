@@ -1,3 +1,5 @@
+// Package record implements a Record structure containing all necessary
+// information for usage in the system, as well as various helper functions.
 package record
 
 import (
@@ -44,8 +46,6 @@ func (rec Record) TotalSize() uint64 {
 }
 
 // New creates a Record object with the key and value specified as byte slices.
-//	key	::	Key for this Record
-//	val	::	Value for this Record
 func New(key, val []byte) Record {
 	return Record{
 		Crc:       crc32.ChecksumIEEE(append(key[:], val[:]...)),
@@ -110,10 +110,6 @@ func (rec Record) String() string {
 		string(rec.Key),
 		string(rec.Value),
 	)
-}
-
-func (rec *Record) CalcCRC() {
-	rec.Crc = crc32.ChecksumIEEE(append(rec.Key[:], rec.Value[:]...))
 }
 
 // Deserialize reads data from buffered reader and overwrites this record.

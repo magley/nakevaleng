@@ -16,7 +16,7 @@ lwmIndex := 1
 buffCap := 2
 
 // Will create a segment if there are none in walPath
-wal := wal.New(walPath, dbname, maxRecsInSeg, lwmIndex, buffCap)
+wal, _ := wal.New(walPath, dbname, maxRecsInSeg, lwmIndex, buffCap)
 
 rec1 := record.NewFromString("Key01", "Val01")
 rec2 := record.NewFromString("Key02", "Val02")

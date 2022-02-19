@@ -1,3 +1,5 @@
+// Package filename implements various utilities to be used with the on-disk
+// structures of the system.
 package filename
 
 import (

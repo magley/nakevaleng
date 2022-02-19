@@ -1,3 +1,5 @@
+// Package coreconf implements a configuration structure used for supplying the
+// entire program with valid parameters.
 package coreconf
 
 import (
@@ -21,7 +23,7 @@ const (
 	_FLUSH_THRESHOLD = 1 << 1
 )
 
-// default values
+// Default values for the configuration.
 const (
 	PATH                    = "data/"
 	WAL_PATH                = "data/log/"
@@ -43,6 +45,7 @@ const (
 	INTERNAL_START          = "$"
 )
 
+// CoreConfig is a data structure storing all modifiable-on-disk settings for the database engine.
 type CoreConfig struct {
 	Path    string `yaml:"path"`
 	WalPath string `yaml:"wal_path"`
@@ -66,14 +69,19 @@ type CoreConfig struct {
 	InternalStart string `yaml:"internal_start"`
 }
 
+// ShouldFlushByCapacity returns whether or not the Memtable should flush
+// by capacity.
 func (conf CoreConfig) ShouldFlushByCapacity() bool {
 	return (conf.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
 }
 
+// ShouldFlushByThreshold returns whether or not the Memtable should flush
+// by threshold.
 func (conf CoreConfig) ShouldFlushByThreshold() bool {
 	return (conf.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
 }
 
+// GetDefault returns a config object with the default values for all parameters.
 func GetDefault() CoreConfig {
 	var config CoreConfig
 	config.Path = PATH
@@ -97,6 +105,8 @@ func GetDefault() CoreConfig {
 	return config
 }
 
+// LoadConfig reads the YAML file at filePath and returns a config object and
+// an error indicating whether or not the config object was made successfully.
 func LoadConfig(filePath string) (*CoreConfig, error) {
 	config := GetDefault()
 
@@ -173,6 +183,7 @@ func (conf *CoreConfig) validate() error {
 	return nil
 }
 
+// Dump writes the config object to filePath.
 func (conf CoreConfig) Dump(filePath string) {
 	configData, err := yaml.Marshal(conf)
 	if err != nil {
@@ -184,6 +195,8 @@ func (conf CoreConfig) Dump(filePath string) {
 	}
 }
 
+// MemtableThresholdBytes parses the config's memtable threshold
+// parameter and returns it as an uint64.
 func (conf *CoreConfig) MemtableThresholdBytes() (uint64, error) {
 	isNum := func(s rune) bool {
 		return s >= '0' && s <= '9'

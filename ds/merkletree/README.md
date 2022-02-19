@@ -54,7 +54,7 @@ nodes := []MerkleNode{
 
 // Build tree.
 
-mt := merkletree.New(nodes)
+mt, _ := merkletree.New(nodes)
 fmt.Println("mt root:\t", mt.Root.String())
 
 // Serialize & deserialize.

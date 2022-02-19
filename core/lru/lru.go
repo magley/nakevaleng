@@ -1,3 +1,4 @@
+// Package lru implements a basic Least Recently Used (LRU) cache.
 package lru
 
 import (
@@ -6,16 +7,15 @@ import (
 	"nakevaleng/core/record"
 )
 
+// LRU represents a Least Recently Used Cache implemented using a doubly-linked
+// list for fast insertions and deletions, and a map for fast searching.
 type LRU struct {
 	Capacity int
 	Order    list.List
 	Data     map[string]*list.Element
 }
 
-// New creates a pointer to an LRU object.
-//  capacity    Maximum size of the LRU
-//  returns     Pointer to an LRU object
-// Throws if the passed capacity is not a positive number.
+// New returns a pointer to a new LRU object.
 func New(capacity int) (*LRU, error) {
 	err := ValidateParams(capacity)
 	if err != nil {
@@ -29,6 +29,8 @@ func New(capacity int) (*LRU, error) {
 	}, nil
 }
 
+// ValidateParams is a helper function that returns an error representing  the validity of params
+// passed to LRU's New.
 func ValidateParams(capacity int) error {
 	if capacity <= 0 {
 		err := fmt.Errorf("capacity must be a positive number, but %d was given", capacity)
@@ -37,10 +39,9 @@ func ValidateParams(capacity int) error {
 	return nil
 }
 
-// Get retrieves the record stored in the LRU based on the passed key.
-//  key        String representation of the record's key
-//  returns    Record with the matching key (empty record if no matching key is found) and a success flag
-func (lru *LRU) Get(key string) (record.Record, bool) {
+// Get returns the record stored in the LRU based on the passed key, as well as whether
+// or not the record is present.
+func (lru *LRU) Get(key string) (rec record.Record, isPresent bool) {
 	el, exists := lru.Data[key]
 	if !exists {
 		return record.Record{}, false
@@ -51,9 +52,8 @@ func (lru *LRU) Get(key string) (record.Record, bool) {
 	return el.Value.(record.Record), true
 }
 
-// Set inserts the passed record into the LRU.
-// If the LRU is full, Set will remove the least recently used record so it can insert the new one.
-//  rec    Record to be inserted into the LRU
+// Set inserts the passed record into the LRU. If the LRU is full, Set will remove the least
+// recently used record so it can insert the new one.
 func (lru *LRU) Set(rec record.Record) {
 	key := string(rec.Key)
 
@@ -74,16 +74,16 @@ func (lru *LRU) Set(rec record.Record) {
 	lru.Data[key] = newElement
 }
 
-// Removes the record with the passed key and returns it (as well as a success flag).
-// If the record was successfully found and removed, it will return that record and true.
-// Otherwise, it will return an empty record and false.
-func (lru *LRU) Remove(key string) (record.Record, bool) {
+// Remove returns the record stored in the LRU based on the passed key, as well as whether
+// or not the record was present. If the record with the passed key was found in the LRU,
+// it will be removed.
+func (lru *LRU) Remove(key string) (rec record.Record, wasPresent bool) {
 	el, exists := lru.Data[key]
 	if !exists {
 		return record.Record{}, false
 	}
 
-	rec := el.Value.(record.Record)
+	rec = el.Value.(record.Record)
 
 	delete(lru.Data, string(rec.Key))
 	lru.Order.Remove(el)
