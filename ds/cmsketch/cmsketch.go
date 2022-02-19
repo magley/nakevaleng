@@ -1,5 +1,5 @@
 // Package cmsketch implements a CountMinSketch structure used for counting the number
-// of occurances of each of its elements.
+// of occurrences of each of its elements.
 package cmsketch
 
 import (
@@ -141,7 +141,7 @@ func (cms *CountMinSketch) EncodeToFile(filename string) {
 	}
 }
 
-// decode decodes data from the reader and returns a CMS built from it.
+// decode data from the reader and return a CMS built from it.
 // Uses gob encoding.
 func decode(reader io.Reader) *CountMinSketch {
 	// Read all data into the CMS.
@@ -170,7 +170,7 @@ func DecodeFromBytes(data []byte) *CountMinSketch {
 	return decode(reader)
 }
 
-// DecodeFromBytes reads data from a file and writes into a new CMS.
+// DecodeFromFile reads data from a file and writes into a new CMS.
 // Uses gob encoding.
 func DecodeFromFile(filename string) *CountMinSketch {
 	reader, err := os.Open(filename)

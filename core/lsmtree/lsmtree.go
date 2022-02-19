@@ -32,7 +32,7 @@ func needsCompaction(path, dbname string, level int, RUN_MAX int) bool {
 // Levels which are unable for compaction are: 0, and any level beyond the maximum levels configured
 // for the database.
 // The result of a compaction is a new SSTable in the first available run on the next level.
-// Chaining is performed in case the next level requires a compation after a new SSTable is created.
+// Chaining is performed in case the next level requires a compaction after a new SSTable is created.
 // Only the Data table is created from the existing set, everything else is recreated.
 func Compact(path, dbname string, summaryPageSize int, level int, LVL_MAX, RUN_MAX int) error {
 	err := ValidateParams(summaryPageSize, level, LVL_MAX, RUN_MAX)
@@ -178,7 +178,7 @@ func merge(infile []*os.File, outDataFname string) ([]merkletree.MerkleNode, []r
 		})
 
 		// Keep track of which files have had an entry in the priority queue taken away from.
-		// Normally it would be just the one whose element has highest priority, but we also do
+		// Normally it would be just the one whose element has the highest priority, but we also do
 		// conflict resolution. Each element removed from the pq requires an insertion of the next
 		// element from the corresponding file.
 
@@ -187,7 +187,7 @@ func merge(infile []*os.File, outDataFname string) ([]merkletree.MerkleNode, []r
 			rmvd = append(rmvd, false)
 		}
 
-		// Get element with highest priority.
+		// Get element with the highest priority.
 
 		head := pq[0]
 		pq = pq[0:]

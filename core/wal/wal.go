@@ -326,7 +326,7 @@ func readEntireSegment(segmentPath string) []record.Record {
 	return recs
 }
 
-// Removes the old segments from the filesystem (based on the low water mark index) and renames
+// DeleteOldSegments removes the old segments from the filesystem (based on the low water mark index) and renames
 // the remaining ones so they reflect the new state.
 func (wal *WAL) DeleteOldSegments() {
 	if len(wal.segmentPaths) <= wal.lowWaterMarkIndex {

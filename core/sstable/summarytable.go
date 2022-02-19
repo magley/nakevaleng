@@ -84,7 +84,7 @@ func (ste *summaryTableEntry) Read(reader *bufio.Reader) (eof bool) {
 }
 
 // Read reads data from a binary file into an STH. Old data in the STH is overwritten. The order of
-// the atrtibutes to be read is:
+// the attributes to be read is:
 //	MinKeySize, MaxKeySize, Payload, MinKey, MaxKey
 // MinKeySize and MaxKeySize determine how many bytes to read for the MinKey and MaxKey field.
 // Returns true if an unexpected EOF error is caught (io.EOF or io.ErrUnexpectedEOF).

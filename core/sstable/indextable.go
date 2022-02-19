@@ -61,7 +61,7 @@ func (ite *indexTableEntry) Read(reader *bufio.Reader) (eof bool) {
 // may specify an offset in bytes from which to begin the search. This value can be retrieved from
 // a Summary Table Entry. For faster lookups.
 // If no ITE with the desired key is found, the return value's Offset field equals -1.
-func FindIndexTableEntry(indexTableFname string, key []byte, startoffset int64) indexTableEntry {
+func FindIndexTableEntry(indexTableFname string, key []byte, startOffset int64) indexTableEntry {
 	f, err := os.Open(indexTableFname)
 	if err != nil {
 		panic(err)
@@ -69,7 +69,7 @@ func FindIndexTableEntry(indexTableFname string, key []byte, startoffset int64) 
 	defer f.Close()
 	r := bufio.NewReader(f)
 
-	f.Seek(startoffset, 0)
+	f.Seek(startOffset, 0)
 	ite := indexTableEntry{}
 
 	for {

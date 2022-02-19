@@ -61,9 +61,9 @@ func New(key, val []byte) Record {
 
 // NewTyped creates a Record object with the given key and value and assigns it a type.
 // Note that nakevaleng does not provide any context for the types.
-func NewTyped(key, val []byte, typeinfo uint8) Record {
+func NewTyped(key, val []byte, typeInfo uint8) Record {
 	r := New(key, val)
-	r.TypeInfo = typeinfo
+	r.TypeInfo = typeInfo
 	return r
 }
 

@@ -26,12 +26,12 @@ type WrapperEngine struct {
 
 // New returns a new WrapperEngine object.
 func New(conf *coreconf.CoreConfig) WrapperEngine {
-	coreeng, _ := coreeng.New(conf)
+	cen, _ := coreeng.New(conf)
 
-	return WrapperEngine{*coreeng}
+	return WrapperEngine{*cen}
 }
 
-// PutTypes writes a new record in the system based on the passed key, val and typeInfo
+// PutTyped writes a new record in the system based on the passed key, val and typeInfo
 // parameters.
 func (wen WrapperEngine) PutTyped(user, key string, val []byte, typeInfo byte) bool {
 	return wen.core.Put([]byte(user), []byte(key), val, typeInfo)
