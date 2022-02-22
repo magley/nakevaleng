@@ -2,6 +2,7 @@ package wrappertest
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"nakevaleng/ds/cmsketch"
 	hyperloglog "nakevaleng/ds/hll"
@@ -73,6 +74,7 @@ func (cli *CLITest) Next() {
 		"cmsc": cli.cmsc,
 		"cms":  cli.cms,
 		"cmsq": cli.cmsq,
+		"test": cli.test,
 		"quit": cli.quit,
 	}
 
@@ -303,9 +305,27 @@ func (cli *CLITest) cmsq() bool {
 	return true
 }
 
+func (cli *CLITest) test() bool {
+	if !cli.cmdHasArgc(1) {
+		cli.state = _BAD_ARGC
+		return false
+	}
+
+	fname := cli.args[1]
+
+	if _, err := os.Stat(fname); errors.Is(err, os.ErrNotExist) {
+		cli.state = _BAD_ARGV
+		return false
+	}
+
+	Test(cli.eng, fname)
+	return true
+}
+
 func (cli *CLITest) help() bool {
 	fmt.Println()
 	fmt.Println("help               -  view list of commands")
+	fmt.Println("test [fname]       -  run a csv test from specified filename (ignores current user)")
 	fmt.Println("put  [key] [val]   -  insert record")
 	fmt.Println("get  [key]         -  find record by key")
 	fmt.Println("del  [key]         -  delete record by key")

@@ -66,9 +66,9 @@ func (cen CoreEngine) Get(user, key []byte) (record.Record, bool) {
 		return record.Record{}, false
 	}
 	tb := cen.getTokenBucket(user)
-	for !tb.HasEnoughTokens() {
-		fmt.Println("Slow down!")
-		time.Sleep(1 * time.Second)
+	if !tb.HasEnoughTokens() {
+		fmt.Printf("Slow down, %d seconds to go\n", tb.ResetInterval-(time.Now().Unix()-tb.Timestamp))
+		return record.Record{}, false
 	}
 	cen.putTokenBucket(user, tb)
 	return cen.get(key)
@@ -90,7 +90,6 @@ func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 	r, foundInCache := cen.cache.Get(string(key))
 	if foundInCache {
 		cen.cache.Set(r)
-		//fmt.Println("[cache hit]", r)
 		if r.IsDeleted() {
 			return record.Record{}, false
 		}
@@ -123,8 +122,6 @@ func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 				key,
 			)
 
-			//fmt.Println("AA", ste.Offset, key, j, i)
-
 			if ste.Offset == -1 {
 				//fmt.Printf("%s Not found @ [SUMMARY] @ L%d R%d\n", key, j, i)
 				continue
@@ -137,8 +134,6 @@ func (cen CoreEngine) get(key []byte) (record.Record, bool) {
 				key,
 				ste.Offset,
 			)
-
-			//fmt.Println("BB", ite.Offset, key)
 
 			if ite.Offset == -1 {
 				//fmt.Printf("%s Not found @ [INDEX] @ L%d R%d\n", key, j, i)
@@ -192,9 +187,9 @@ func (cen CoreEngine) Put(user, key, val []byte, typeInfo byte) bool {
 		return false
 	}
 	tb := cen.getTokenBucket(user)
-	for !tb.HasEnoughTokens() {
-		fmt.Println("Slow down!")
-		time.Sleep(1 * time.Second)
+	if !tb.HasEnoughTokens() {
+		fmt.Printf("Slow down, %d seconds to go\n", tb.ResetInterval-(time.Now().Unix()-tb.Timestamp))
+		return false
 	}
 	cen.putTokenBucket(user, tb)
 	rec := record.New(key, val)
@@ -213,6 +208,9 @@ func (cen CoreEngine) put(rec record.Record) {
 
 	fmt.Printf("[DBG]\t[Memtable] Wrote %d bytes for %s\n", rec.TotalSize(), string(rec.Key))
 
+	cnt, _ := cen.mt.Count()
+	fmt.Printf("[DBG]\t[Memtable] %d/%d\n", cnt, cen.conf.MemtableCapacity)
+
 	if cen.mt.ShouldFlush() {
 		cen.mt.Flush()
 		cen.FlushWALBuffer()
@@ -225,27 +223,26 @@ func (cen CoreEngine) put(rec record.Record) {
 func (cen CoreEngine) Delete(user, key []byte) bool {
 	legal := cen.IsLegal(key)
 	if !legal {
-		// todo might want to handle this somewhere else by returning err
-		//fmt.Println("ILLEGAL QUERY:", key)
 		return false
 	}
 	tb := cen.getTokenBucket(user)
-	for !tb.HasEnoughTokens() {
-		fmt.Println("Slow down!")
-		time.Sleep(1 * time.Second)
+	if !tb.HasEnoughTokens() {
+		fmt.Printf("Slow down, %d seconds to go\n", tb.ResetInterval-(time.Now().Unix()-tb.Timestamp))
+		return false
 	}
 	cen.putTokenBucket(user, tb)
 	rec, found := cen.get(key)
 	if !found {
 		return false
 	}
-	// todo remove two below
+
 	if rec.IsDeleted() {
-		panic(rec)
+		return false
 	}
 	rec.Status |= record.RECORD_TOMBSTONE_REMOVED
+	rec.Timestamp = time.Now().Unix()
+	fmt.Println("Deleting...", rec)
 	cen.put(rec)
-	// todo maybe add cache removal here
 	return true
 }
 

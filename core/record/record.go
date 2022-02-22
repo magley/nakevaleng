@@ -94,7 +94,7 @@ func NewEmpty() Record {
 
 // IsDeleted checks for the Tombstone bit in the record's Status field.
 func (rec Record) IsDeleted() bool {
-	return (rec.Status & RECORD_TOMBSTONE_REMOVED) != 0
+	return (rec.Status & RECORD_TOMBSTONE_REMOVED) == RECORD_TOMBSTONE_REMOVED
 }
 
 // String returns a string representation of the record suitable for reading and debugging.

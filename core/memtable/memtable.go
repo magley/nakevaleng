@@ -36,6 +36,11 @@ func New(conf *coreconf.CoreConfig) (*Memtable, error) {
 	}, nil
 }
 
+// Count returns: number of elements, memusage
+func (mt Memtable) Count() (int, int) {
+	return mt.sl.Count, int(mt.memusage)
+}
+
 // Add a record to the memtable.
 // Returns whether or not the element is a new element in the memtable. In that case, the memtable
 // does not grow in size.

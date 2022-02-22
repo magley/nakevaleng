@@ -72,13 +72,13 @@ type CoreConfig struct {
 // ShouldFlushByCapacity returns whether or not the Memtable should flush
 // by capacity.
 func (conf CoreConfig) ShouldFlushByCapacity() bool {
-	return (conf.MemtableFlushStrategy & _FLUSH_CAPACITY) != 0
+	return (conf.MemtableFlushStrategy & _FLUSH_CAPACITY) == _FLUSH_CAPACITY
 }
 
 // ShouldFlushByThreshold returns whether or not the Memtable should flush
 // by threshold.
 func (conf CoreConfig) ShouldFlushByThreshold() bool {
-	return (conf.MemtableFlushStrategy & _FLUSH_THRESHOLD) != 0
+	return (conf.MemtableFlushStrategy & _FLUSH_THRESHOLD) == _FLUSH_THRESHOLD
 }
 
 // GetDefault returns a config object with the default values for all parameters.

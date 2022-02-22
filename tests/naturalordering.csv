@@ -1,0 +1,19 @@
+# set lsm_run_max: 30, memtable_capacity: 1 and a large num of tokens
+USER00,P,1,1
+PAUSE
+USER00,P,2,2
+PAUSE
+USER00,P,3,3
+PAUSE
+USER00,P,4,4
+USER00,P,5,5
+USER00,P,6,6
+USER00,P,7,7
+USER00,P,8,8
+USER00,P,9,9
+USER00,P,1,1
+USER00,P,2,2
+PAUSE
+USER00,G,1,-
+USER00,G,2,-
+USER00,G,3,-
