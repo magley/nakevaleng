@@ -108,6 +108,7 @@ func calculateNumOfRecordsInSegment(filename string) int {
 // Append will add a new segment and append the record into the new segment.
 func (wal *WAL) Append(rec record.Record) {
 	if wal.lastSegmentNumOfRecords == wal.maxRecordsInSegment {
+		fmt.Println("[DBG]\t[WAL] Created new segment")
 		wal.addSegment() // Append is now operating on the new last segment
 	}
 

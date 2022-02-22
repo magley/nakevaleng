@@ -13,11 +13,12 @@ import (
 	"nakevaleng/engine/wrappereng"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Test reads the generated test file and parses it into commands to be
 // used by the WrapperEngine.
-func Test(wen wrappereng.WrapperEngine, testPath string) {
+func Test(wen *wrappereng.WrapperEngine, testPath string) {
 	f, err := os.OpenFile(testPath, os.O_RDONLY, 0644)
 	if err != nil {
 		panic(err)
@@ -38,7 +39,10 @@ func Test(wen wrappereng.WrapperEngine, testPath string) {
 		if err != nil {
 			panic(err)
 		}
-		if rec[1] == "P" {
+
+		if rec[0] == "PAUSE" {
+			time.Sleep(1 * time.Second)
+		} else if rec[1] == "P" {
 			if rec[3] == "HLL" {
 				p, err := strconv.Atoi(rec[4])
 				if err != nil {
@@ -208,5 +212,5 @@ func main() {
 		panic(err)
 	}
 	wen := wrappereng.New(conf)
-	Test(wen, "tests/w0001.csv")
+	Test(&wen, "tests/w0001.csv")
 }
